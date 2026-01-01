@@ -363,12 +363,13 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                 video::cue {
                     font-family: 'Netflix Sans', 'Inter', sans-serif;
                     /* Responsive Font Size: Minimum 16px, Preferred 2.5vw, Maximum 40px */
-                    font-size: clamp(16px, 2.5vw, 40px);
-                    color: #ffffff;
-                    /* Netflix Style Shadow: Strong stroke effect for readability on any background */
-                    text-shadow: #000000 0px 0px 7px;
-                    background-color: transparent;
-                    line-height: normal;
+                    background: transparent;
+                    color: white;
+                    text-shadow: 2px 2px 2px black, -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;
+                    font-size: clamp(16px, 2vw, 24px);
+                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                    font-weight: 600;
+                    padding: 4px 8px;
                 }
                 
                 /* Mobile optimization */

@@ -148,6 +148,36 @@ app.get('/stream', async (req, res) => {
 
         console.log(`[Stream] Source: ${fileData.filename}`);
 
+        // A. MP4 Direct Play (Perfect Seeking, Zero Server CPU)
+        if (fileData.isMp4) {
+            console.log(`[Stream] Mode: DIRECT PROXY (MP4)`);
+            const headers = {
+                'User-Agent': 'Mozilla/5.0',
+                'Connection': 'keep-alive'
+            };
+            if (req.headers.range) headers['Range'] = req.headers.range;
+
+            try {
+                const response = await axios({
+                    url: fileData.url,
+                    method: 'GET',
+                    responseType: 'stream',
+                    headers
+                });
+
+                res.status(response.status);
+                ['content-length', 'content-range', 'content-type', 'accept-ranges'].forEach(h => {
+                    if (response.headers[h]) res.setHeader(h, response.headers[h]);
+                });
+                response.data.pipe(res);
+            } catch (proxyErr) {
+                console.error("Proxy Error:", proxyErr.message);
+                res.status(502).end();
+            }
+            return;
+        }
+
+        // B. MKV/AVI -> MP4 Remuxing (with H.265 auto-transcode)
         // Detect Codec & Pixel Format to ensure TV Compatibility
         console.log(`[Stream] Probing file for TV safety...`);
 
@@ -157,7 +187,7 @@ app.get('/stream', async (req, res) => {
         ffmpeg.ffprobe(fileData.url, (probeErr, metadata) => {
             if (probeErr) {
                 console.error('[Probe Error]', probeErr.message);
-                // Fail safe: Transcode everything
+                // Probe failed, safer to transcode everything just to be sure
                 startStream(true, true);
                 return;
             }
@@ -170,7 +200,6 @@ app.get('/stream', async (req, res) => {
             const pixFmt = videoStream?.pix_fmt || 'unknown';
 
             // TV Rule: Must be H264 (avc1) AND 8-bit (yuv420p)
-            // HEVC (h265), VP9, or 10-bit H264 (yuv420p10le) will cause "Sound No Video"
             const isVideoSafe = ['h264', 'avc1'].includes(videoCodec) && pixFmt === 'yuv420p';
             const isAudioSafe = ['aac', 'mp3'].includes(audioCodec);
 
@@ -180,6 +209,8 @@ app.get('/stream', async (req, res) => {
             // If unsafe, we transcode that component
             startStream(!isVideoSafe, !isAudioSafe);
         });
+
+
 
         function startStream(transcodeVideo, transcodeAudio) {
             const inputOpts = [
@@ -201,9 +232,11 @@ app.get('/stream', async (req, res) => {
                     '-preset ultrafast',
                     '-crf 23',
                     '-tune zerolatency',
-                    '-pix_fmt yuv420p', // Ensure compatibility
-                    '-profile:v baseline', // High compatibility
-                    '-level 3.0'
+                    '-pix_fmt yuv420p',
+                    '-profile:v main',     // Better for HD than baseline
+                    '-level 4.0',          // Supports 1080p (Level 3.0 was SD only!)
+                    '-maxrate 5M',         // Cap bitrate for TV WiFi
+                    '-bufsize 10M'
                 );
             } else {
                 console.log(`[Stream] ✅ COPYING VIDEO (h264)`);
@@ -295,7 +328,11 @@ app.get('/subtitle-proxy', async (req, res) => {
         if (!content.trim().startsWith('WEBVTT')) {
             content = 'WEBVTT\n\n' + content;
         }
-        content = content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+        // Robust Regex: Matches 00:00:00,000 --> 00:00:00,000 and converts commas to dots
+        // Only touches timestamp lines, safe for text content containing commas
+        content = content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})\s+-->\s+(\d{2}:\d{2}:\d{2}),(\d{3})/g,
+            (match, t1, ms1, t2, ms2) => `${t1}.${ms1} --> ${t2}.${ms2}`
+        );
 
         res.setHeader('Content-Type', 'text/vtt');
         res.setHeader('Access-Control-Allow-Origin', '*');
