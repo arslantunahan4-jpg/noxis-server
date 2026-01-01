@@ -12,11 +12,20 @@ const DetailPage = lazy(() => import('./pages/DetailPage'));
 const PlayerPage = lazy(() => import('./pages/PlayerPage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
 
+import { useTVNavigation, useGamepadNavigation, useSmartMouse } from './hooks/useAppLogic';
+
 const App = () => {
     const location = useLocation();
     const [showIntro, setShowIntro] = useState(() => !sessionStorage.getItem('noxis_intro_seen'));
     const [activeTab, setActiveTab] = useState('Ana Sayfa'); // For Navbar highlighting
 
+    // TV Navigation Hooks
+    const isPlayerOpen = location.pathname.startsWith('/play');
+    const isModalOpen = location.pathname.startsWith('/watch');
+
+    useTVNavigation(isModalOpen, isPlayerOpen);
+    useGamepadNavigation();
+    useSmartMouse(); // Hides cursor when inactive
 
     // Sync activeTab with location
     React.useEffect(() => {
@@ -40,7 +49,7 @@ const App = () => {
     return (
         <>
             {showIntro && <IntroAnimation onComplete={handleIntroComplete} />}
-            
+
             <div className="app-container" style={{
                 background: 'var(--bg-primary)',
                 height: '100dvh', // Fixed height
@@ -52,8 +61,8 @@ const App = () => {
                 <NavBar activeTab={activeTab} onLogout={handleLogout} />
                 <MobileNav activeTab={activeTab} onLogout={handleLogout} />
 
-                <div className="content-wrapper" style={{ 
-                    flex: 1, 
+                <div className="content-wrapper" style={{
+                    flex: 1,
                     paddingTop: '60px',
                     overflowY: 'auto', // Enable vertical scrolling
                     overflowX: 'hidden',

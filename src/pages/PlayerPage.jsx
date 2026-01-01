@@ -8,17 +8,17 @@ const PlayerPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const [movie, setMovie] = useState(null);
-    
+
     const season = parseInt(searchParams.get('s')) || 1;
     const episode = parseInt(searchParams.get('e')) || 1;
 
     useEffect(() => {
         const loadMovieData = async () => {
-             // We need basic movie info for the player (title, backdrop etc)
-             const data = await fetchTMDB(`/${type}/${id}`);
-             if (data) {
-                 setMovie({ ...data, media_type: type });
-             }
+            // We need basic movie info for the player (title, backdrop etc)
+            const data = await fetchTMDB(`/${type}/${id}`);
+            if (data) {
+                setMovie({ ...data, media_type: type });
+            }
         };
         loadMovieData();
     }, [type, id]);
@@ -32,7 +32,7 @@ const PlayerPage = () => {
     }
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'black' }}>
+        <div id="player-container" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'black' }}>
             <Player
                 movie={movie}
                 initialSeason={season}
