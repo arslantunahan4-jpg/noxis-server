@@ -152,20 +152,28 @@ app.get('/stream', async (req, res) => {
         ffmpeg.ffprobe(fileData.url, (probeErr, metadata) => {
             if (probeErr) {
                 console.error('[Probe Error]', probeErr.message);
-                // Fallback to copy mode if probe fails
-                startStream(false);
+                // Probe failed, safer to transcode everything just to be sure
+                startStream(true, true);
                 return;
             }
 
             const videoStream = metadata?.streams?.find(s => s.codec_type === 'video');
-            const videoCodec = videoStream?.codec_name?.toLowerCase() || '';
-            const isHEVC = ['hevc', 'h265', 'h.265'].includes(videoCodec);
+            const audioStream = metadata?.streams?.find(s => s.codec_type === 'audio');
 
-            console.log(`[Stream] Detected codec: ${videoCodec} | HEVC: ${isHEVC}`);
-            startStream(isHEVC);
+            const videoCodec = videoStream?.codec_name?.toLowerCase() || 'unknown';
+            const audioCodec = audioStream?.codec_name?.toLowerCase() || 'unknown';
+
+            // Safe Codecs for Web (MP4 Container)
+            const isVideoSafe = ['h264', 'avc1'].includes(videoCodec);
+            const isAudioSafe = ['aac', 'mp3'].includes(audioCodec);
+
+            console.log(`[Stream] Detected: V:${videoCodec} (${isVideoSafe ? 'Safe' : 'Unsafe'}) | A:${audioCodec} (${isAudioSafe ? 'Safe' : 'Unsafe'})`);
+
+            // If unsafe, we transcode that component
+            startStream(!isVideoSafe, !isAudioSafe);
         });
 
-        function startStream(needsTranscode) {
+        function startStream(transcodeVideo, transcodeAudio) {
             const inputOpts = [
                 '-reconnect 1',
                 '-reconnect_streamed 1',
@@ -175,30 +183,43 @@ app.get('/stream', async (req, res) => {
                 '-probesize 32M'
             ];
 
-            let outputOpts;
-            if (needsTranscode) {
-                // H.265 -> H.264 Transcode (Browser Compatible)
-                console.log(`[Stream] ⚡ TRANSCODING H.265 -> H.264`);
-                outputOpts = [
-                    '-c:v libx264',      // Transcode to H.264
-                    '-preset ultrafast', // Fastest encoding (lowest CPU)
-                    '-crf 23',           // Quality (18-28, lower = better)
-                    '-tune zerolatency', // Low latency streaming
-                    '-c:a aac',          // AAC audio for compatibility
-                    '-b:a 192k',
-                    '-movflags +frag_keyframe+empty_moov+default_base_moof',
-                    '-f mp4'
-                ];
+            const outputOpts = [];
+
+            // 1. VIDEO HANDLING
+            if (transcodeVideo) {
+                console.log(`[Stream] ⚡ TRANSCODING VIDEO (libx264)`);
+                outputOpts.push(
+                    '-c:v libx264',
+                    '-preset ultrafast',
+                    '-crf 23',
+                    '-tune zerolatency',
+                    '-pix_fmt yuv420p', // Ensure compatibility
+                    '-profile:v baseline', // High compatibility
+                    '-level 3.0'
+                );
             } else {
-                // Direct remux (Zero CPU)
-                console.log(`[Stream] ✅ REMUX MODE (copy codec)`);
-                outputOpts = [
-                    '-c:v copy',
-                    '-c:a copy',
-                    '-movflags +frag_keyframe+empty_moov+default_base_moof',
-                    '-f mp4'
-                ];
+                console.log(`[Stream] ✅ COPYING VIDEO (h264)`);
+                outputOpts.push('-c:v copy');
             }
+
+            // 2. AUDIO HANDLING
+            if (transcodeAudio) {
+                console.log(`[Stream] ⚡ TRANSCODING AUDIO (aac)`);
+                outputOpts.push(
+                    '-c:a aac',
+                    '-b:a 128k',
+                    '-ac 2' // Stereo downmix for compatibility
+                );
+            } else {
+                console.log(`[Stream] ✅ COPYING AUDIO (aac/mp3)`);
+                outputOpts.push('-c:a copy');
+            }
+
+            // 3. CONTAINER FLAGS
+            outputOpts.push(
+                '-movflags +frag_keyframe+empty_moov+default_base_moof',
+                '-f mp4'
+            );
 
             const command = ffmpeg(fileData.url)
                 .inputOptions(inputOpts)
@@ -235,7 +256,12 @@ app.get('/subtitles', async (req, res) => {
         ? `https://opensubtitles-v3.strem.io/subtitles/series/tt${cleanId}:${season}:${episode}.json`
         : `https://opensubtitles-v3.strem.io/subtitles/movie/tt${cleanId}.json`;
     try {
-        const { data } = await axios.get(url, { timeout: 3000 });
+        const { data } = await axios.get(url, {
+            timeout: 3000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
         const subs = (data.subtitles || [])
             .filter(s => ['tur', 'eng'].includes(s.lang))
             .map(s => ({ id: s.id, lang: s.lang, url: s.url, label: s.lang.toUpperCase() }));
@@ -248,7 +274,12 @@ app.get('/subtitle-proxy', async (req, res) => {
     if (!url) return res.status(400).send("URL required");
 
     try {
-        const response = await axios.get(url, { responseType: 'text' });
+        const response = await axios.get(url, {
+            responseType: 'text',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
         // Robust SRT to VTT conversion:
         // 1. Ensure WEBVTT header exists.
         // 2. Convert comma timestamps (00:00:00,000) to dots (00:00:00.000).

@@ -176,9 +176,11 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
         if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
         if (videoRef.current && !videoRef.current.paused) {
             controlsTimeout.current = setTimeout(() => {
-                setShowControls(false);
-                setShowSubMenu(false);
-                containerRef.current.style.cursor = 'none';
+                if (containerRef.current) {
+                    setShowControls(false);
+                    setShowSubMenu(false);
+                    containerRef.current.style.cursor = 'none';
+                }
             }, HIDE_CONTROLS_DELAY);
         }
     }, []);
@@ -214,6 +216,9 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
         }
         if (index !== -1 && tracks[index]) {
             tracks[index].mode = 'showing';
+            console.log(`[Subtitles] Altyazı açıldı: Index ${index}, Label: ${tracks[index].label}`);
+        } else {
+            console.log(`[Subtitles] Altyazı kapatıldı`);
         }
         setActiveSubIndex(index);
         setShowSubMenu(false);
@@ -323,6 +328,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
         }
 
         return () => {
+            if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
             if (hlsRef.current) hlsRef.current.destroy();
             if (videoRef.current) {
                 videoRef.current.src = "";
