@@ -386,7 +386,13 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                     onTimeUpdate={onTimeUpdate} onEnded={onClose} muted={isMuted} crossOrigin="anonymous" playsInline autoPlay
                 >
                     {subtitles.map((s, i) => (
-                        <track key={i} kind="subtitles" src={`/subtitle-proxy?url=${encodeURIComponent(s.url)}`} label={s.label} srcLang={s.lang} />
+                        <track
+                            key={i}
+                            kind="subtitles"
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/subtitle-proxy?url=${encodeURIComponent(s.url)}`}
+                            label={s.label}
+                            srcLang={s.lang}
+                        />
                     ))}
                 </video>
 
