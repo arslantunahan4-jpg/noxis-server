@@ -1,0 +1,227 @@
+/**
+ * Torrent Aggregator Service
+ * 
+ * Multi-source torrent search with health filtering and caching.
+ * Sources: Torrentio API, YTS API, 1337x (fallback)
+ */
+
+import axios from 'axios';
+
+// --- CONFIGURATION ---
+const CONFIG = {
+    TORRENTIO_BASE: 'https://torrentio.strem.fun',
+    YTS_MIRRORS: ['https://yts.mx', 'https://yts.lt', 'https://yts.ag'],
+    USE_PROXY: true, // Force use of backend proxy for APIs
+    CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+    MIN_SEEDS: 5, // Minimum seeds for quality filter
+    REQUEST_TIMEOUT: 15000,
+    TRACKERS: [
+        'udp://tracker.opentrackr.org:1337/announce',
+        'udp://open.stealth.si:80/announce',
+        'udp://tracker.openbittorrent.com:6969/announce',
+        'udp://p4p.arenabg.com:1337',
+        'udp://tracker.torrent.eu.org:451/announce',
+        'wss://tracker.openwebtorrent.com',
+        'wss://tracker.btorrent.xyz'
+    ]
+};
+
+// --- IN-MEMORY CACHE ---
+const cache = new Map();
+
+function getCached(key) {
+    const item = cache.get(key);
+    if (!item) return null;
+    if (Date.now() > item.expiry) {
+        cache.delete(key);
+        return null;
+    }
+    return item.data;
+}
+
+function setCache(key, data) {
+    cache.set(key, {
+        data,
+        expiry: Date.now() + CONFIG.CACHE_TTL
+    });
+}
+
+// --- TORRENT RESULT FORMAT ---
+/**
+ * @typedef {Object} TorrentResult
+ * @property {string} infoHash - BitTorrent info hash
+ * @property {string} title - Torrent title
+ * @property {string} quality - Video quality (720p, 1080p, 4K, etc.)
+ * @property {number} seeds - Number of seeders
+ * @property {number} leechers - Number of leechers
+ * @property {string} size - File size string
+ * @property {string} source - Source name (Torrentio, YTS, 1337x)
+ * @property {string} magnetUri - Complete magnet URI with trackers
+ */
+
+// --- MAGNET URI BUILDER ---
+function buildMagnetUri(infoHash, title = 'Video') {
+    const trackerQuery = CONFIG.TRACKERS
+        .map(t => `&tr=${encodeURIComponent(t)}`)
+        .join('');
+    return `magnet:?xt=urn:btih:${infoHash}&dn=${encodeURIComponent(title)}${trackerQuery}`;
+}
+
+// --- TORRENTIO API ---
+async function searchTorrentio(imdbId, type = 'movie', season = null, episode = null) {
+    try {
+        let endpoint;
+        if (type === 'series' || type === 'tv') {
+            endpoint = `${CONFIG.TORRENTIO_BASE}/stream/series/${imdbId}:${season}:${episode}.json`;
+        } else {
+            endpoint = `${CONFIG.TORRENTIO_BASE}/stream/movie/${imdbId}.json`;
+        }
+
+        console.log(`[Torrentio] Fetching: ${endpoint}`);
+        const response = await axios.get(endpoint, { timeout: CONFIG.REQUEST_TIMEOUT });
+
+        if (!response.data?.streams?.length) {
+            console.log('[Torrentio] No streams found');
+            return [];
+        }
+
+        return response.data.streams.map(stream => {
+            const name = stream.name || '';
+            const title = stream.title || '';
+
+            // Parse quality from name (e.g., "Torrentio\n1080p")
+            const qualityMatch = name.match(/(\d{3,4}p|4K|2160p)/i);
+            const quality = qualityMatch ? qualityMatch[1].toUpperCase() : 'Unknown';
+
+            // Parse seeds from title emoji format 👤 123
+            const seedMatch = title.match(/👤\s*(\d+)/);
+            const seeds = seedMatch ? parseInt(seedMatch[1]) : 0;
+
+            // Parse size from title 💾 2.1 GB
+            const sizeMatch = title.match(/💾\s*([\d.]+\s*(?:GB|MB))/i);
+            const size = sizeMatch ? sizeMatch[1] : 'Unknown';
+
+            return {
+                infoHash: stream.infoHash,
+                title: title.split('\n')[0] || name,
+                quality,
+                seeds,
+                leechers: 0,
+                size,
+                source: 'Torrentio',
+                magnetUri: buildMagnetUri(stream.infoHash, title)
+            };
+        }).filter(t => t.infoHash && t.seeds >= CONFIG.MIN_SEEDS);
+
+    } catch (error) {
+        console.log(`[Torrentio] Error: ${error.message}`);
+        return [];
+    }
+}
+
+// --- YTS API (Movies Only) ---
+async function searchYTS(imdbId) {
+    let movies = [];
+    const proxyBase = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+    for (const domain of CONFIG.YTS_MIRRORS) {
+        try {
+            const rawUrl = `${domain}/api/v2/list_movies.json?query_term=${imdbId}`;
+            const targetUrl = `${proxyBase}/api/proxy?url=${encodeURIComponent(rawUrl)}`;
+
+            console.log(`[YTS] Fetching via Proxy: ${targetUrl}`);
+            const response = await axios.get(targetUrl, { timeout: CONFIG.REQUEST_TIMEOUT });
+
+            if (response.data?.data?.movies?.[0]) {
+                const movie = response.data.data.movies[0];
+                const torrents = movie.torrents || [];
+
+                return torrents.map(t => ({
+                    infoHash: t.hash,
+                    title: movie.title,
+                    quality: t.quality || 'Unknown',
+                    seeds: t.seeds || 0,
+                    leechers: t.peers || 0,
+                    size: t.size || 'Unknown',
+                    source: 'YTS',
+                    magnetUri: buildMagnetUri(t.hash, movie.title)
+                })).filter(t => t.seeds >= CONFIG.MIN_SEEDS);
+            }
+        } catch (error) {
+            console.log(`[YTS] Error on ${domain}: ${error.message}`);
+        }
+    }
+    return [];
+}
+
+// --- MAIN AGGREGATOR FUNCTION ---
+/**
+ * Search for torrents across multiple sources
+ * @param {string} imdbId - IMDB ID (e.g., tt0816692)
+ * @param {string} type - Content type: 'movie' or 'tv'
+ * @param {number} season - Season number (for TV)
+ * @param {number} episode - Episode number (for TV)
+ * @returns {Promise<TorrentResult[]>} - Sorted array of torrent results
+ */
+export async function searchTorrents(imdbId, type = 'movie', season = null, episode = null) {
+    // Check cache first
+    const cacheKey = `${imdbId}:${type}:${season}:${episode}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+        console.log(`[Aggregator] Cache hit for ${cacheKey}`);
+        return cached;
+    }
+
+    console.log(`[Aggregator] Starting search for ${imdbId} (${type})`);
+    const isSeries = type === 'tv' || type === 'series';
+
+    // Parallel search
+    const searchPromises = [
+        searchTorrentio(imdbId, type, season, episode)
+    ];
+
+    // YTS only for movies
+    if (!isSeries) {
+        searchPromises.push(searchYTS(imdbId));
+    }
+
+    const results = await Promise.allSettled(searchPromises);
+
+    // Flatten and combine results
+    let allTorrents = [];
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+            allTorrents = [...allTorrents, ...result.value];
+        }
+    }
+
+    // Remove duplicates by infoHash
+    const seen = new Set();
+    allTorrents = allTorrents.filter(t => {
+        if (seen.has(t.infoHash)) return false;
+        seen.add(t.infoHash);
+        return true;
+    });
+
+    // Sort by seeds (highest first), then by quality preference
+    const qualityRank = { '4K': 4, '2160P': 4, '1080P': 3, '720P': 2, 'Unknown': 1 };
+    allTorrents.sort((a, b) => {
+        // First by seeds
+        if (b.seeds !== a.seeds) return b.seeds - a.seeds;
+        // Then by quality
+        const rankA = qualityRank[a.quality.toUpperCase()] || 1;
+        const rankB = qualityRank[b.quality.toUpperCase()] || 1;
+        return rankB - rankA;
+    });
+
+    // Cache results
+    if (allTorrents.length > 0) {
+        setCache(cacheKey, allTorrents);
+    }
+
+    console.log(`[Aggregator] Found ${allTorrents.length} torrents`);
+    return allTorrents;
+}
+
+// --- EXPORT CONFIG FOR EXTERNAL USE ---
+export { CONFIG, buildMagnetUri };

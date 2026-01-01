@@ -1,0 +1,104 @@
+entrypoint = "index.js"
+modules = ["nodejs-20", "web", "java-graalvm22.3"]
+hidden = [".config", "package-lock.json"]
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["unzip", "imagemagick", "jdk17", "gradle", "android-tools", "zip"]
+
+[deployment]
+run = ["npm", "run", "start"]
+deploymentTarget = "autoscale"
+ignorePorts = false
+build = ["npm", "run", "build"]
+
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 33405
+externalPort = 5000
+
+[[ports]]
+localPort = 34353
+externalPort = 6800
+
+[[ports]]
+localPort = 34621
+externalPort = 6000
+
+[[ports]]
+localPort = 37133
+externalPort = 3001
+
+[[ports]]
+localPort = 37153
+externalPort = 3002
+
+[[ports]]
+localPort = 38123
+externalPort = 3000
+
+[[ports]]
+localPort = 38145
+externalPort = 5173
+
+[[ports]]
+localPort = 39155
+externalPort = 8000
+
+[[ports]]
+localPort = 40579
+externalPort = 8008
+
+[[ports]]
+localPort = 41561
+externalPort = 3003
+
+[[ports]]
+localPort = 42735
+externalPort = 4200
+
+[[ports]]
+localPort = 44329
+externalPort = 8099
+
+[[ports]]
+localPort = 45239
+externalPort = 8080
+
+[userenv]
+
+[userenv.shared]
+TMDB_API_KEY = "db8ab9e44da4236102fadf5d58a08a4b"

@@ -1,0 +1,48 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["netlify/functions/**"]
+
+[[redirects]]
+  from = "/api/scrape-iframe"
+  to = "/.netlify/functions/scrape-iframe"
+  status = 200
+
+[[redirects]]
+  from = "/api/video-proxy"
+  to = "/.netlify/functions/video-proxy"
+  status = 200
+
+[[redirects]]
+  from = "/api/stream-proxy/*"
+  to = "/.netlify/functions/stream-proxy"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/*"
+  to = "/.netlify/functions/auth"
+  status = 200
+
+[[redirects]]
+  from = "/api/tmdb"
+  to = "/.netlify/functions/tmdb-proxy"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-subtitles"
+  to = "/.netlify/functions/get-subtitles"
+  status = 200
+
+[[redirects]]
+  from = "/api/get-magnet"
+  to = "/.netlify/functions/get-magnet"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
