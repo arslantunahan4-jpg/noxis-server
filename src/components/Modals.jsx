@@ -396,9 +396,33 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                         backdropFilter: 'blur(4px)',
                                                         border: '1px solid rgba(255,255,255,0.4)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                                        marginRight: '12px'
                                                     }}>
                                                         <i className="fas fa-play" style={{ color: 'white', fontSize: '14px', marginLeft: '2px' }}></i>
+                                                    </div>
+
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handlePartyWatch(selectedSeason, ep.episode_number);
+                                                        }}
+                                                        title="Torrent / 4K İzle"
+                                                        style={{
+                                                            width: '40px', height: '40px',
+                                                            borderRadius: '50%',
+                                                            background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.4), rgba(255, 193, 7, 0.3))', // Orange/Gold for Torrent
+                                                            backdropFilter: 'blur(4px)',
+                                                            border: '1px solid rgba(255, 165, 0, 0.6)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            boxShadow: '0 4px 12px rgba(255, 107, 0, 0.2)',
+                                                            cursor: 'pointer',
+                                                            transition: 'transform 0.2s'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                    >
+                                                        <i className="fas fa-magnet" style={{ color: '#ffd700', fontSize: '14px' }}></i>
                                                     </div>
                                                 </div>
 

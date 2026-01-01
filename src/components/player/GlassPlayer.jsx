@@ -258,6 +258,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
             switch (e.key) {
                 case ' ':
                 case 'k':
+                case 'Enter': // TV Remote OK button
                     e.preventDefault();
                     togglePlay();
                     break;
@@ -267,6 +268,25 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                     break;
                 case 'ArrowLeft':
                     if (videoRef.current) videoRef.current.currentTime -= 10;
+                    handleInteraction();
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    setVolume(v => {
+                        const newV = Math.min(v + 0.1, 1);
+                        if (videoRef.current) videoRef.current.volume = newV;
+                        setIsMuted(false);
+                        return newV;
+                    });
+                    handleInteraction();
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    setVolume(v => {
+                        const newV = Math.max(v - 0.1, 0);
+                        if (videoRef.current) videoRef.current.volume = newV;
+                        return newV;
+                    });
                     handleInteraction();
                     break;
                 case 'f':
