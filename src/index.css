@@ -798,6 +798,56 @@ iframe.focusable:focus {
   pointer-events: none;
 }
 
+/* --- TV & LOW-END DEVICE OPTIMIZATIONS --- */
+@media (hover: none) and (pointer: coarse),
+@media (min-width: 1920px) {
+  /* Generic detection fallback */
+}
+
+/* Precise JS-based detection */
+.tv-mode .navbar-container,
+.tv-mode .mobile-nav,
+.tv-mode .nav-menu,
+.tv-mode .nav-logout-btn,
+.tv-mode .glass-panel,
+.tv-mode .detail-view-container {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(10, 10, 12, 0.96) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Fallback for devices without JS detection but with coarse pointer */
+@media (hover: none) and (pointer: coarse) {
+
+  .navbar-container,
+  .mobile-nav,
+  .nav-menu,
+  .nav-logout-btn,
+  .glass-panel,
+  .detail-view-container {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(10, 10, 12, 0.96) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
+.tv-mode .poster-card {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5) !important;
+  transition: transform 0.2s ease !important;
+}
+
+.tv-mode .hero-gradient {
+  background: linear-gradient(to bottom, transparent 0%, #000 100%) !important;
+}
+
+.tv-mode .poster-card::after,
+.tv-mode .navbar-container::after,
+.tv-mode .navbar-container::before {
+  display: none !important;
+}
+
 .hero-gradient-side {
   position: absolute;
   inset: 0;
@@ -2594,6 +2644,6 @@ iframe.focusable:focus {
 }
 
 /* Altyazı Menüsü Hover Efekti */
-.sub-btn:hover { 
-    background: rgba(255,255,255,0.1) !important; 
+.sub-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
 }

@@ -2,10 +2,10 @@ import React, { memo, useState, useRef, useEffect, useLayoutEffect } from 'react
 import { isWatched } from '../hooks/useAppLogic';
 import { useNavigate } from 'react-router-dom';
 
-export const BASE_IMG = "https://image.tmdb.org/t/p/w500";
-export const POSTER_IMG = "https://image.tmdb.org/t/p/w780";
-export const BACKDROP_IMG = "https://image.tmdb.org/t/p/w1280";
-export const ORIGINAL_IMG = "https://image.tmdb.org/t/p/original";
+export const BASE_IMG = "https://image.tmdb.org/t/p/w342"; // Smaller base
+export const POSTER_IMG = "https://image.tmdb.org/t/p/w500"; // w780 -> w500 (Enough for cards)
+export const BACKDROP_IMG = "https://image.tmdb.org/t/p/w1280"; // Standard HD
+export const ORIGINAL_IMG = "https://image.tmdb.org/t/p/w1280"; // FORCE w1280 instead of actual original (8K safe)
 
 // Global cache for loaded image URLs to prevent re-fetching/fading
 // We limit this set size to prevent memory leaks on weak devices
@@ -97,8 +97,10 @@ export const SmartImage = memo(({ src, alt, style, className }) => {
                         objectFit: 'cover',
                         opacity: loaded ? 1 : 0,
                         transition: isCached ? 'none' : 'opacity 0.5s ease-out, transform 0.5s ease-out',
-                        transform: loaded ? 'scale(1)' : 'scale(1.03)',
-                        willChange: 'opacity, transform' // GPU Hint
+                        transform: loaded ? 'scale(1) translateZ(0)' : 'scale(1.03) translateZ(0)',
+                        willChange: 'opacity, transform', // GPU Hint
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden'
                     }}
                 />
             )}
@@ -300,7 +302,7 @@ export const Card = memo(({ movie, onSelect, layout = 'portrait', progress = 0 }
             )}
             {hasValidImage ? (
                 <SmartImage
-                    src={isLandscape ? BACKDROP_IMG + imgPath : POSTER_IMG + imgPath}
+                    src={isLandscape ? "https://image.tmdb.org/t/p/w780" + imgPath : POSTER_IMG + imgPath}
                     alt={movie.title || movie.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

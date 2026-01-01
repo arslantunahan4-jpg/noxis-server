@@ -366,11 +366,8 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                     {episodes.map(ep => (
                                         <div
                                             key={ep.id}
-                                            tabIndex="0"
-                                            role="button"
-                                            onClick={() => handlePlayEpisode(selectedSeason, ep.episode_number)}
-                                            className="focusable episode-card"
-                                            style={{ padding: 0, cursor: 'pointer' }}
+                                            className="episode-card"
+                                            style={{ padding: 0, cursor: 'default', flexDirection: 'column' }}
                                         >
                                             {isWatched(movie.id, selectedSeason, ep.episode_number) && (
                                                 <div className="watched-badge" style={{ left: '8px', right: 'auto', top: '8px' }}>
@@ -378,53 +375,38 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                 </div>
                                             )}
                                             <div style={{ aspectRatio: '16/9', position: 'relative' }}>
-                                                <SmartImage
-                                                    src={ep.still_path ? BACKDROP_IMG + ep.still_path : ''}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }}
-                                                />
-                                                <div style={{
-                                                    position: 'absolute', inset: 0,
-                                                    background: 'rgba(0,0,0,0.3)',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    opacity: 0.8, transition: 'opacity 0.2s',
-                                                    className: 'play-overlay'
-                                                }}>
+                                                {/* Main Play Action (Focusable) */}
+                                                <button
+                                                    onClick={() => handlePlayEpisode(selectedSeason, ep.episode_number)}
+                                                    className="focusable"
+                                                    style={{
+                                                        position: 'absolute', inset: 0, border: 'none', padding: 0,
+                                                        background: 'transparent', width: '100%', height: '100%',
+                                                        zIndex: 1, cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <SmartImage
+                                                        src={ep.still_path ? BACKDROP_IMG + ep.still_path : ''}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s', willChange: 'transform', transform: 'translateZ(0)' }} />
                                                     <div style={{
-                                                        width: '40px', height: '40px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(255, 255, 255, 0.2)',
-                                                        backdropFilter: 'blur(4px)',
-                                                        border: '1px solid rgba(255,255,255,0.4)',
+                                                        position: 'absolute', inset: 0,
+                                                        background: 'rgba(0,0,0,0.3)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                                                        marginRight: '12px'
+                                                        opacity: 0.8 // Always visible for TV clarity
                                                     }}>
-                                                        <i className="fas fa-play" style={{ color: 'white', fontSize: '14px', marginLeft: '2px' }}></i>
-                                                    </div>
-
-                                                    <div
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handlePartyWatch(selectedSeason, ep.episode_number);
-                                                        }}
-                                                        title="Torrent / 4K İzle"
-                                                        style={{
+                                                        <div style={{
                                                             width: '40px', height: '40px',
                                                             borderRadius: '50%',
-                                                            background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.4), rgba(255, 193, 7, 0.3))', // Orange/Gold for Torrent
+                                                            background: 'rgba(255, 255, 255, 0.2)',
                                                             backdropFilter: 'blur(4px)',
-                                                            border: '1px solid rgba(255, 165, 0, 0.6)',
+                                                            border: '1px solid rgba(255,255,255,0.4)',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            boxShadow: '0 4px 12px rgba(255, 107, 0, 0.2)',
-                                                            cursor: 'pointer',
-                                                            transition: 'transform 0.2s'
-                                                        }}
-                                                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                                                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                                    >
-                                                        <i className="fas fa-magnet" style={{ color: '#ffd700', fontSize: '14px' }}></i>
+                                                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                                        }}>
+                                                            <i className="fas fa-play" style={{ color: 'white', fontSize: '14px', marginLeft: '2px' }}></i>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                </button>
 
                                                 <div style={{
                                                     position: 'absolute',
@@ -436,10 +418,37 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                     borderRadius: '6px',
                                                     fontSize: '12px',
                                                     color: 'white',
-                                                    fontWeight: '600'
+                                                    fontWeight: '600',
+                                                    zIndex: 2, pointerEvents: 'none'
                                                 }}>
                                                     {ep.episode_number}. Bölüm
                                                 </div>
+
+                                                {/* Independent Torrent Button (Focusable) */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePartyWatch(selectedSeason, ep.episode_number);
+                                                    }}
+                                                    className="focusable"
+                                                    title="Torrent / 4K İzle"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        bottom: '8px',
+                                                        right: '8px',
+                                                        width: '36px', height: '36px',
+                                                        borderRadius: '50%',
+                                                        background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.9), rgba(255, 193, 7, 0.9))',
+                                                        backdropFilter: 'blur(4px)',
+                                                        border: '2px solid rgba(255, 255, 255, 0.2)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                                        cursor: 'pointer',
+                                                        zIndex: 3 // Higher than play button
+                                                    }}
+                                                >
+                                                    <i className="fas fa-magnet" style={{ color: 'white', fontSize: '14px' }}></i>
+                                                </button>
                                             </div>
                                             <div style={{ padding: '14px', position: 'relative', zIndex: 2 }}>
                                                 <div style={{

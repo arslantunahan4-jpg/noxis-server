@@ -247,6 +247,33 @@ export const useSmartMouse = () => {
 export const useTVNavigation = (isModalOpen, isPlayerOpen) => {
     const lastFocus = useRef(null);
 
+    // Initial Focus & TV Detection Logic
+    useEffect(() => {
+        // 1. Detect TV Platform
+        const ua = navigator.userAgent.toLowerCase();
+        const isTV = ua.includes('tv') || ua.includes('web0s') || ua.includes('tizen') || ua.includes('smart') || ua.includes('box');
+
+        if (isTV) {
+            document.body.classList.add('tv-mode');
+            console.log('[App] TV Platform Detected:', ua);
+        }
+
+        // 2. Wait for DOM to be ready
+        const timeout = setTimeout(() => {
+            // Auto-focus logic only if we are in tv-mode or no mouse detected
+            if (isTV || (!document.activeElement || document.activeElement === document.body)) {
+                // Prioritize "Play" buttons or "Home" nav
+                const prioritySelect = isPlayerOpen ? '#video-frame' : isModalOpen ? '.detail-play-btn' : '.nav-btn.active, .nav-btn';
+                const target = document.querySelector(prioritySelect) || document.querySelector('.focusable');
+                if (target) {
+                    target.focus();
+                    lastFocus.current = target;
+                }
+            }
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [isModalOpen, isPlayerOpen]);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             // 1. Map Keys

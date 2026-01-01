@@ -40,13 +40,13 @@ const styles = {
         width: '100%', maxWidth: '1100px', margin: '0 auto',
         pointerEvents: 'auto',
         display: 'flex', flexDirection: 'column', gap: '16px',
-        background: 'rgba(20, 20, 20, 0.4)',
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)', // Safari
+        background: 'rgba(20, 20, 20, 0.95)', // Solid dark for TV performance
+        backdropFilter: 'none', // Removed heavy blur
+        WebkitBackdropFilter: 'none',
         padding: '20px 24px',
         borderRadius: '24px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.8)'
     },
 
     bottomBar: {

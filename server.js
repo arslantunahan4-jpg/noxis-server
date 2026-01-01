@@ -45,8 +45,8 @@ class DebridService {
         return { 'Authorization': `Bearer ${CONFIG.REAL_DEBRID_TOKEN}` };
     }
 
-    async resolveMagnet(magnet, fileIndex) {
-        const cacheKey = `${magnet}_${fileIndex || 0}`;
+    async resolveMagnet(magnet, fileIndex, season, episode) {
+        const cacheKey = `${magnet}_${fileIndex || 'auto'}_s${season || 0}e${episode || 0}`;
         const cached = this.cache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp < 3600000)) {
             console.log(`[Cache] ⚡ Hit: ${cacheKey.substring(0, 15)}...`);
@@ -56,7 +56,7 @@ class DebridService {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
         try {
-            console.log(`[Debrid] Resolving magnet...`);
+            console.log(`[Debrid] Resolving magnet... S:${season} E:${episode}`);
             const form = new URLSearchParams();
             form.append('magnet', magnet);
 
@@ -66,9 +66,39 @@ class DebridService {
             const { data: info } = await axios.get(`${this.baseUrl}/torrents/info/${addData.id}`, { headers: this.headers });
 
             let selectedFileId;
+
+            // 1. Explicit Index Strategy
             if (fileIndex !== undefined && info.files[fileIndex]) {
                 selectedFileId = info.files[fileIndex].id;
-            } else {
+            }
+            // 2. Season/Episode Regex Strategy (Smart Select)
+            else if (season && episode) {
+                // Common patterns: S01E01, 1x01, S1E1
+                const s = parseInt(season);
+                const e = parseInt(episode);
+
+                // Flexible regex to match SxxExx or 1x01 anywhere in filename
+                const patterns = [
+                    new RegExp(`[sS]0?${s}[eE]0?${e}[^0-9]`), // S01E01 or S1E1, followed by non-digit
+                    new RegExp(`0?${s}[xX]0?${e}[^0-9]`),      // 1x01, followed by non-digit
+                    new RegExp(`S0?${s}\\s?-\\s?E0?${e}`)       // S01 - E01
+                ];
+
+                const match = info.files.find(f => {
+                    const name = f.path.split('/').pop(); // check only filename
+                    return patterns.some(p => p.test(name)) && /\.(mp4|mkv|avi|webm)$/i.test(name);
+                });
+
+                if (match) {
+                    console.log(`[Debrid] ✅ Smart Match: ${match.path}`);
+                    selectedFileId = match.id;
+                } else {
+                    console.warn(`[Debrid] ⚠️ No regex match for S${s}E${e}, falling back to largest file.`);
+                }
+            }
+
+            // 3. Fallback: Largest Video File
+            if (!selectedFileId) {
                 const videoFile = info.files.find(f => /\.(mp4|mkv|avi|webm)$/i.test(f.path))
                     || info.files.sort((a, b) => b.bytes - a.bytes)[0];
                 if (!videoFile) throw new Error("No video file found");
@@ -103,56 +133,31 @@ const debrid = new DebridService();
 // --- ROUTE: STREAM ---
 
 app.get('/stream', async (req, res) => {
-    const { magnet, index } = req.query;
+    const { magnet, index, season, episode } = req.query;
     if (!magnet) return res.status(400).send("Magnet required");
 
     try {
         console.log(`[Stream] Init...`);
-        const fileData = await debrid.resolveMagnet(magnet, index ? parseInt(index) : undefined);
+        const fileData = await debrid.resolveMagnet(
+            magnet,
+            index ? parseInt(index) : undefined,
+            season,
+            episode
+        );
         if (!fileData) return res.status(502).send("Debrid failed");
 
         console.log(`[Stream] Source: ${fileData.filename}`);
 
-        // A. MP4 Direct Play (Perfect Seeking, Zero Server CPU)
-        if (fileData.isMp4) {
-            console.log(`[Stream] Mode: DIRECT PROXY (MP4)`);
-            const headers = {
-                'User-Agent': 'Mozilla/5.0',
-                'Connection': 'keep-alive'
-            };
-            if (req.headers.range) headers['Range'] = req.headers.range;
-
-            try {
-                const response = await axios({
-                    url: fileData.url,
-                    method: 'GET',
-                    responseType: 'stream',
-                    headers
-                });
-
-                res.status(response.status);
-                ['content-length', 'content-range', 'content-type', 'accept-ranges'].forEach(h => {
-                    if (response.headers[h]) res.setHeader(h, response.headers[h]);
-                });
-                response.data.pipe(res);
-            } catch (proxyErr) {
-                console.error("Proxy Error:", proxyErr.message);
-                res.status(502).end();
-            }
-            return;
-        }
-
-        // B. MKV/AVI -> MP4 Remuxing (with H.265 auto-transcode)
-        console.log(`[Stream] Mode: LIVE REMUX (detecting codec...)`);
+        // Detect Codec & Pixel Format to ensure TV Compatibility
+        console.log(`[Stream] Probing file for TV safety...`);
 
         res.setHeader('Content-Type', 'video/mp4');
         res.setHeader('Access-Control-Allow-Origin', '*');
 
-        // Probe the file to detect codec
         ffmpeg.ffprobe(fileData.url, (probeErr, metadata) => {
             if (probeErr) {
                 console.error('[Probe Error]', probeErr.message);
-                // Probe failed, safer to transcode everything just to be sure
+                // Fail safe: Transcode everything
                 startStream(true, true);
                 return;
             }
@@ -162,12 +167,15 @@ app.get('/stream', async (req, res) => {
 
             const videoCodec = videoStream?.codec_name?.toLowerCase() || 'unknown';
             const audioCodec = audioStream?.codec_name?.toLowerCase() || 'unknown';
+            const pixFmt = videoStream?.pix_fmt || 'unknown';
 
-            // Safe Codecs for Web (MP4 Container)
-            const isVideoSafe = ['h264', 'avc1'].includes(videoCodec);
+            // TV Rule: Must be H264 (avc1) AND 8-bit (yuv420p)
+            // HEVC (h265), VP9, or 10-bit H264 (yuv420p10le) will cause "Sound No Video"
+            const isVideoSafe = ['h264', 'avc1'].includes(videoCodec) && pixFmt === 'yuv420p';
             const isAudioSafe = ['aac', 'mp3'].includes(audioCodec);
 
-            console.log(`[Stream] Detected: V:${videoCodec} (${isVideoSafe ? 'Safe' : 'Unsafe'}) | A:${audioCodec} (${isAudioSafe ? 'Safe' : 'Unsafe'})`);
+            console.log(`[Stream] Analysis: V:${videoCodec} (${pixFmt}) | A:${audioCodec}`);
+            console.log(`[Stream] Action: Video->${isVideoSafe ? 'COPY' : 'TRANSCODE'} | Audio->${isAudioSafe ? 'COPY' : 'TRANSCODE'}`);
 
             // If unsafe, we transcode that component
             startStream(!isVideoSafe, !isAudioSafe);
