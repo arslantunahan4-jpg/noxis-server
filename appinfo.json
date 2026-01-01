@@ -1,0 +1,22 @@
+{
+    "id": "com.noxis.player",
+    "version": "1.0.0",
+    "vendor": "Noxis Team",
+    "type": "web",
+    "main": "index.html",
+    "title": "Noxis Player",
+    "appDescription": "Advanced Video Player for TV",
+    "icon": "icon.png",
+    "largeIcon": "largeIcon.png",
+    "bgColor": "#000000",
+    "bgImage": "splash.png",
+    "resolution": "1920x1080",
+    "uiRevision": "2",
+    "requiredExtensions": [
+        "media"
+    ],
+    "permissions": [
+        "public.audio",
+        "public.media"
+    ]
+}

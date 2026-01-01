@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { Card, SkeletonRow } from './Shared';
 
+import { useTVScroll } from '../hooks/useTVScroll';
+
 // Helper to get dimensions based on current window width matching index.css
 const getItemDimensions = (layout, windowWidth) => {
     let fontSize = 16;
@@ -29,17 +31,17 @@ const getItemDimensions = (layout, windowWidth) => {
 };
 
 export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMore, hasMore = true, layout = 'portrait' }) => {
-    const containerRef = useRef(null);
+    const containerRef = useTVScroll(); // Use TV Scroll Hook instead of plain useRef
     const [containerWidth, setContainerWidth] = useState(0);
-    const [itemDims, setItemDims] = useState({ width: 0, gap: 0 }); 
-    
+    const [itemDims, setItemDims] = useState({ width: 0, gap: 0 });
+
     // Scroll Arrow States
     const [showLeftArrow, setShowLeftArrow] = useState(false);
     const [showRightArrow, setShowRightArrow] = useState(true);
-    
+
     // Only store the range indices in state to minimize re-renders
     const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10 });
-    
+
     // Refs for values needed in scroll handler to avoid closure staleness without re-binding
     const itemDimsRef = useRef(itemDims);
     const dataLengthRef = useRef(data?.length || 0);
@@ -56,7 +58,7 @@ export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMo
             if (containerRef.current) {
                 const el = containerRef.current;
                 setContainerWidth(el.clientWidth);
-                
+
                 // Update arrows logic
                 setShowLeftArrow(el.scrollLeft > 10);
                 setShowRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
@@ -83,7 +85,7 @@ export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMo
 
         const overscan = 4; // Render extra items
         const visibleCount = Math.ceil(containerWidthRef.current / totalItemWidth);
-        
+
         const newStart = Math.max(0, Math.floor(scrollLeft / totalItemWidth) - overscan);
         const newEnd = Math.min(dataLengthRef.current, Math.floor(scrollLeft / totalItemWidth) + visibleCount + overscan);
 
@@ -118,11 +120,11 @@ export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMo
     if (!data || data.length === 0 || totalItemWidth === 0) return <SkeletonRow />;
 
     const totalContentWidth = data.length * totalItemWidth;
-    
+
     const visibleItems = [];
     // Ensure we don't go out of bounds
     const safeEnd = Math.min(data.length, visibleRange.end);
-    
+
     for (let i = visibleRange.start; i < safeEnd; i++) {
         visibleItems.push({
             ...data[i],
@@ -165,7 +167,7 @@ export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMo
                 style={{
                     position: 'relative',
                     overflowX: 'auto',
-                    height: layout === 'landscape' ? (itemWidth * 9 / 16 + 40) : (itemWidth * 3 / 2 + 40), 
+                    height: layout === 'landscape' ? (itemWidth * 9 / 16 + 40) : (itemWidth * 3 / 2 + 40),
                     display: 'block',
                     willChange: 'scroll-position' // Hint to browser
                 }}

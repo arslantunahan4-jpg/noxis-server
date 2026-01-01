@@ -30,7 +30,7 @@ export const SmartImage = memo(({ src, alt, style, className }) => {
                 setIsVisible(entry.isIntersecting);
             });
         }, {
-            rootMargin: '400px 0px 400px 0px', // Preload just 1-2 screens ahead
+            rootMargin: '800px 0px 800px 0px', // Increased buffer to prevent disappearing on focus/scale
             threshold: 0.01
         });
 
