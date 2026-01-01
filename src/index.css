@@ -800,21 +800,53 @@ iframe.focusable:focus {
 
 /* --- TV & LOW-END DEVICE OPTIMIZATIONS --- */
 @media (hover: none) and (pointer: coarse),
-@media (min-width: 1920px) {
+(min-width: 1920px) {
   /* Generic detection fallback */
 }
 
-/* Precise JS-based detection */
+/* Precise JS-based detection: AGGRESSIVE OPTIMIZATION */
 .tv-mode .navbar-container,
 .tv-mode .mobile-nav,
 .tv-mode .nav-menu,
 .tv-mode .nav-logout-btn,
 .tv-mode .glass-panel,
-.tv-mode .detail-view-container {
+.tv-mode .detail-view-container,
+.tv-mode .card-overlay,
+.tv-mode .episode-card button,
+.tv-mode .watched-badge {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  background: rgba(10, 10, 12, 0.96) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  background: rgba(15, 15, 17, 0.98) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Optimization: Paint & Layout Containment */
+.tv-mode .row-scroll-container,
+.tv-mode .detail-view-container {
+  contain: content;
+  will-change: scroll-position;
+}
+
+/* Optimization: Disable Heavy Animations */
+.tv-mode .poster-card,
+.tv-mode .episode-card,
+.tv-mode img {
+  transform: none !important;
+  transition: opacity 0.2s ease !important;
+  will-change: auto !important;
+  backface-visibility: visible !important;
+  box-shadow: none !important;
+}
+
+/* Optimization: Simplified Focus State */
+.tv-mode .focusable:focus {
+  transform: scale(1.02) !important;
+  border: 2px solid white !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5) !important;
+  z-index: 10 !important;
+  background: #222 !important;
 }
 
 /* Fallback for devices without JS detection but with coarse pointer */

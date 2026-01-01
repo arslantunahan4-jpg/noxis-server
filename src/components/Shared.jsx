@@ -13,47 +13,40 @@ const loadedImageUrls = new Set();
 const MAX_CACHE_SIZE = 100;
 
 export const SmartImage = memo(({ src, alt, style, className }) => {
-    // Only check cache for initial "fade-in" logic, not for keeping it in DOM
+    // OPTIMIZED SmartImage: "Virtual Image" behavior
+    // Aggressively unloads <img> DOM nodes when off-screen to save TV memory.
     const isCached = loadedImageUrls.has(src);
     const [loaded, setLoaded] = useState(isCached);
     const [error, setError] = useState(false);
-    const [isVisible, setIsVisible] = useState(false); // Controls <img> rendering
+    const [isVisible, setIsVisible] = useState(false); // Controls if <img> is physically in DOM
     const containerRef = useRef(null);
-
-    useEffect(() => {
-        setLoaded(loadedImageUrls.has(src));
-        setError(false);
-    }, [src]);
 
     useEffect(() => {
         if (!containerRef.current) return;
 
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
-                // Buffer zone: unload if far away, load if close
+                // Aggressive recycling: Only render if intersecting (plus small margin)
                 setIsVisible(entry.isIntersecting);
             });
         }, {
-            rootMargin: '600px 0px 600px 0px' // Keep images loaded within ~2 screens height/width
+            rootMargin: '400px 0px 400px 0px', // Preload just 1-2 screens ahead
+            threshold: 0.01
         });
 
         observer.observe(containerRef.current);
-
-        return () => {
-            if (observer) observer.disconnect();
-        };
+        return () => observer.disconnect();
     }, []);
+
+    useEffect(() => {
+        // Reset state when source changes
+        setLoaded(loadedImageUrls.has(src));
+        setError(false);
+    }, [src]);
 
     const handleLoad = () => {
         setLoaded(true);
-        if (src) {
-            loadedImageUrls.add(src);
-            if (loadedImageUrls.size > MAX_CACHE_SIZE) {
-                // Simple cache prune
-                const it = loadedImageUrls.values();
-                loadedImageUrls.delete(it.next().value);
-            }
-        }
+        if (src) loadedImageUrls.add(src);
     };
 
     return (
@@ -63,27 +56,26 @@ export const SmartImage = memo(({ src, alt, style, className }) => {
             style={{
                 ...style,
                 position: 'relative',
-                backgroundColor: '#0a0a0a',
+                backgroundColor: '#0a0a0a', // Placeholder color
                 overflow: 'hidden'
             }}
         >
+            {/* Show skeleton if loading OR if off-screen (to maintain layout size) */}
             {(!loaded || !isVisible) && !error && (
                 <div className="skeleton" style={{ position: 'absolute', inset: 0 }} />
             )}
+
             {error && (
                 <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'rgba(255,255,255,0.3)',
-                    fontSize: '2rem'
+                    position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'rgba(255,255,255,0.3)', fontSize: '2rem'
                 }}>
                     <i className="fas fa-film"></i>
                 </div>
             )}
-            {isVisible && (
+
+            {/* CRITICAL: Only render <img> tag when Visible. This is the virtualization magic. */}
+            {isVisible && !error && (
                 <img
                     src={src}
                     alt={alt}
@@ -96,11 +88,8 @@ export const SmartImage = memo(({ src, alt, style, className }) => {
                         height: '100%',
                         objectFit: 'cover',
                         opacity: loaded ? 1 : 0,
-                        transition: isCached ? 'none' : 'opacity 0.5s ease-out, transform 0.5s ease-out',
-                        transform: loaded ? 'scale(1) translateZ(0)' : 'scale(1.03) translateZ(0)',
-                        willChange: 'opacity, transform', // GPU Hint
-                        backfaceVisibility: 'hidden',
-                        WebkitBackfaceVisibility: 'hidden'
+                        transition: isCached ? 'none' : 'opacity 0.4s ease-out',
+                        willChange: 'opacity',
                     }}
                 />
             )}

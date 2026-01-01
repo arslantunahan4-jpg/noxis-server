@@ -200,11 +200,14 @@ app.get('/stream', async (req, res) => {
             const pixFmt = videoStream?.pix_fmt || 'unknown';
 
             // TV Rule: Must be H264 (avc1) AND 8-bit (yuv420p)
-            const isVideoSafe = ['h264', 'avc1'].includes(videoCodec) && pixFmt === 'yuv420p';
+            // CRITICAL FIX: For MKV files, even H.264 "Copy" can fail on TVs (timestamps/container issues).
+            // We only allow "Copy" if the source is MP4. If MKV, we FORCE TRANSCODE to ensure a clean stream.
+            const isSourceMp4 = fileData.isMp4;
+            const isVideoSafe = isSourceMp4 && ['h264', 'avc1'].includes(videoCodec) && pixFmt === 'yuv420p';
             const isAudioSafe = ['aac', 'mp3'].includes(audioCodec);
 
-            console.log(`[Stream] Analysis: V:${videoCodec} (${pixFmt}) | A:${audioCodec}`);
-            console.log(`[Stream] Action: Video->${isVideoSafe ? 'COPY' : 'TRANSCODE'} | Audio->${isAudioSafe ? 'COPY' : 'TRANSCODE'}`);
+            console.log(`[Stream] Analysis: Source:${isSourceMp4 ? 'MP4' : 'MKV/Other'} | V:${videoCodec} | A:${audioCodec}`);
+            console.log(`[Stream] Action: Video->${isVideoSafe ? 'COPY' : 'TRANSCODE (Safety)'} | Audio->${isAudioSafe ? 'COPY' : 'TRANSCODE'}`);
 
             // If unsafe, we transcode that component
             startStream(!isVideoSafe, !isAudioSafe);
