@@ -342,14 +342,28 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
             <style>{`
                 video::cue {
                     font-family: 'Netflix Sans', 'Inter', sans-serif;
-                    font-size: 1.5rem;
+                    /* Responsive Font Size: Minimum 16px, Preferred 2.5vw, Maximum 40px */
+                    font-size: clamp(16px, 2.5vw, 40px);
                     color: #ffffff;
-                    text-shadow: 0px 0px 4px rgba(0, 0, 0, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
+                    /* Netflix Style Shadow: Strong stroke effect for readability on any background */
+                    text-shadow: #000000 0px 0px 7px;
                     background-color: transparent;
+                    line-height: normal;
                 }
+                
+                /* Mobile optimization */
                 @media (max-width: 768px) {
-                    video::cue { font-size: 1.1rem; }
+                    video::cue { 
+                        font-size: clamp(14px, 4.5vw, 24px); 
+                        text-shadow: #000000 0px 0px 4px;
+                    }
                 }
+                
+                /* TV / Large Screen adjustments */
+                @media (min-width: 1920px) {
+                    video::cue { font-size: 3vw; }
+                }
+
                 .glass-btn:hover { background: rgba(255,255,255,0.15) !important; transform: scale(1.1); }
                 .glass-btn:active { transform: scale(0.95); }
                 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #fff; margin-top: -5px; box-shadow: 0 0 10px rgba(255,255,255,0.5); cursor: pointer; transition: transform 0.1s; }
