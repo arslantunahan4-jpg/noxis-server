@@ -301,19 +301,12 @@ export async function searchTorrents(imdbId, type = 'movie', season = null, epis
         return true;
     });
 
-    // Sort by Dubbed preference, then seeds (highest first), then by quality preference
+    // Sort by seeds (highest first), then by quality preference
     const qualityRank = { '4K': 4, '2160P': 4, '1080P': 3, '720P': 2, 'Unknown': 1 };
     allTorrents.sort((a, b) => {
-        // 0. Turkish/Dubbed Priority
-        const trRegex = /türkçe|turkce|dublaj/i;
-        const aTR = trRegex.test(a.title);
-        const bTR = trRegex.test(b.title);
-        
-        if (aTR !== bTR) return bTR - aTR; // Prioritize TR
-
-        // 1. First by seeds
+        // First by seeds
         if (b.seeds !== a.seeds) return b.seeds - a.seeds;
-        // 2. Then by quality
+        // Then by quality
         const rankA = qualityRank[a.quality.toUpperCase()] || 1;
         const rankB = qualityRank[b.quality.toUpperCase()] || 1;
         return rankB - rankA;

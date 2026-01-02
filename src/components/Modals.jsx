@@ -644,34 +644,24 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
 
                             <div style={{ overflowY: 'auto', flex: 1 }}>
                                 {torrentOptions.map((torrent, index) => {
-                                    const isTurkish = ['tr', 'tur', 'turkish', 'dublaj', 'dual', 'ses'].some(k =>
-                                        (torrent.title + (torrent.name || '')).toLowerCase().includes(k)
-                                    );
-
                                     return (
                                         <button
                                             key={index}
                                             onClick={() => handleSelectTorrent(torrent)}
                                             style={{
                                                 width: '100%',
-                                                background: isTurkish
-                                                    ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.15))'
-                                                    : (index === 0 ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.2), rgba(255, 193, 7, 0.1))' : 'rgba(255, 255, 255, 0.05)'),
-                                                border: isTurkish
-                                                    ? '1px solid rgba(255, 215, 0, 0.6)'
-                                                    : (index === 0 ? '1px solid rgba(255, 165, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)'),
+                                                background: (index === 0 ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.2), rgba(255, 193, 7, 0.1))' : 'rgba(255, 255, 255, 0.05)'),
+                                                border: (index === 0 ? '1px solid rgba(255, 165, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)'),
                                                 borderRadius: '12px',
                                                 padding: '16px',
                                                 marginBottom: '10px',
                                                 cursor: 'pointer',
                                                 textAlign: 'left',
                                                 transition: 'all 0.2s ease',
-                                                boxShadow: isTurkish ? '0 0 10px rgba(255, 215, 0, 0.1)' : 'none'
+                                                boxShadow: 'none'
                                             }}
-                                            onMouseOver={(e) => e.currentTarget.style.background = isTurkish ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 165, 0, 0.15)'}
-                                            onMouseOut={(e) => e.currentTarget.style.background = isTurkish
-                                                ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.15))'
-                                                : (index === 0 ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.2), rgba(255, 193, 7, 0.1))' : 'rgba(255, 255, 255, 0.05)')}
+                                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 165, 0, 0.15)'}
+                                            onMouseOut={(e) => e.currentTarget.style.background = (index === 0 ? 'linear-gradient(135deg, rgba(255, 107, 0, 0.2), rgba(255, 193, 7, 0.1))' : 'rgba(255, 255, 255, 0.05)')}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -687,18 +677,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                     }}>
                                                         {torrent.quality || 'Unknown'}
                                                     </span>
-                                                    {isTurkish && (
-                                                        <span style={{
-                                                            background: '#FFD700',
-                                                            color: '#000',
-                                                            padding: '4px 8px',
-                                                            borderRadius: '6px',
-                                                            fontSize: '11px',
-                                                            fontWeight: '800'
-                                                        }}>
-                                                            🇹🇷 TR DUBLAJ
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
                                                     {torrent.source}
@@ -717,7 +695,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                     {torrent.size || 'N/A'}
                                                 </span>
                                             </div>
-                                            {index === 0 && !isTurkish && (
+                                            {index === 0 && (
                                                 <div style={{
                                                     marginTop: '8px',
                                                     fontSize: '11px',
@@ -978,7 +956,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                         margin: '0 auto 16px'
                     }}></div>
                     <p style={{ fontSize: '16px', opacity: 0.8 }}>
-                        Türkçe kaynak aranıyor...
+                        Kaynak aranıyor...
                     </p>
                 </div>
             ) : getUrl() ? (

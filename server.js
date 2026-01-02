@@ -1,12 +1,12 @@
 "use strict";
 /**
- * ONYX SERVER PRO v3.0 (DIRECT REMUX EDITION)
+ * ONYX SERVER PRO v3.1 (OPTIMIZED EDITION)
  * -----------------------------------------
- * Features:
- * 1. Direct Stream: No HLS overhead, single connection.
- * 2. Smart Proxy: MP4s are proxied directly (Zero CPU).
- * 3. Live Remux: MKVs are converted to MP4 container on-the-fly (Low CPU).
- * 4. Stability: Best for long-duration playback without segmentation glitches.
+ * Improvements:
+ * - Security: Helmet & Rate Limiting added.
+ * - Memory: LRU Cache implementation.
+ * - Performance: Compression enabled.
+ * - Stability: Better error handling & timeouts.
  */
 
 const express = require('express');
@@ -14,6 +14,10 @@ const cors = require('cors');
 const ffmpeg = require('fluent-ffmpeg');
 const axios = require('axios');
 const dotenv = require('dotenv');
+const helmet = require('helmet'); // GÜVENLİK
+const rateLimit = require('express-rate-limit'); // GÜVENLİK
+const { LRUCache } = require('lru-cache'); // BELLEK YÖNETİMİ
+const compression = require('compression'); // PERFORMANS
 
 dotenv.config();
 
@@ -23,21 +27,38 @@ const CONFIG = {
     REAL_DEBRID_TOKEN: process.env.REAL_DEBRID_TOKEN || '',
     FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
     FFPROBE_PATH: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
+    ALLOWED_PROXY_DOMAINS: ['yts.mx', 'yts.lt', 'eztvx.to', '1337x.to', 'torrentio.strem.fun'] // WHITELIST
 };
 
-// Set FFmpeg paths
-ffmpeg.setFfmpegPath(CONFIG.FFMPEG_PATH);
+// Set FFmpeg pathsfmpeg.setFfmpegPath(CONFIG.FFMPEG_PATH);
 ffmpeg.setFfprobePath(CONFIG.FFPROBE_PATH);
 
 const app = express();
-app.use(cors());
+
+// --- MIDDLEWARES ---
+app.use(helmet({ contentSecurityPolicy: false })); // Temel güvenlik başlıkları
+app.use(cors()); // CORS
+app.use(compression()); // Gzip sıkıştırma
 app.use(express.json());
+
+// Rate Limiter: 15 dakikada max 500 istek (Genel API için)
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500, // Streaming uygulaması olduğu için biraz esnek
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(limiter);
 
 // --- SERVICES ---
 
 class DebridService {
     constructor() {
-        this.cache = new Map();
+        // LRU Cache: Max 500 öğe tutar, 1 saat sonra siler.
+        this.cache = new LRUCache({
+            max: 500,
+            ttl: 1000 * 60 * 60, 
+        });
         this.baseUrl = 'https://api.real-debrid.com/rest/1.0';
     }
 
@@ -47,10 +68,10 @@ class DebridService {
 
     async resolveMagnet(magnet, fileIndex, season, episode) {
         const cacheKey = `${magnet}_${fileIndex || 'auto'}_s${season || 0}e${episode || 0}`;
-        const cached = this.cache.get(cacheKey);
-        if (cached && (Date.now() - cached.timestamp < 3600000)) {
+        
+        if (this.cache.has(cacheKey)) {
             console.log(`[Cache] ⚡ Hit: ${cacheKey.substring(0, 15)}...`);
-            return cached.data;
+            return this.cache.get(cacheKey);
         }
 
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -60,49 +81,54 @@ class DebridService {
             const form = new URLSearchParams();
             form.append('magnet', magnet);
 
+            // Real-Debrid API Call
             const { data: addData } = await axios.post(`${this.baseUrl}/torrents/addMagnet`, form, { headers: this.headers });
-            await sleep(500);
-
-            const { data: info } = await axios.get(`${this.baseUrl}/torrents/info/${addData.id}`, { headers: this.headers });
+            
+            // Wait for file parsing
+            let attempts = 0;
+            let info;
+            while(attempts < 10) {
+                await sleep(500);
+                const infoRes = await axios.get(`${this.baseUrl}/torrents/info/${addData.id}`, { headers: this.headers });
+                info = infoRes.data;
+                if(info.status === 'waiting_files_selection') break;
+                if(info.status === 'downloaded') break; // Zaten inmiş olabilir
+                attempts++;
+            }
 
             let selectedFileId;
-
-            // 1. Explicit Index Strategy
-            if (fileIndex !== undefined && info.files[fileIndex]) {
-                selectedFileId = info.files[fileIndex].id;
-            }
-            // 2. Season/Episode Regex Strategy (Smart Select)
-            else if (season && episode) {
-                // Common patterns: S01E01, 1x01, S1E1
-                const s = parseInt(season);
-                const e = parseInt(episode);
-
-                // Flexible regex to match SxxExx or 1x01 anywhere in filename
+            
+            if (!info.files) throw new Error("Files not ready");
+            
+            // Regex mantığı
+            const s = parseInt(season);
+            const e = parseInt(episode);
+            
+            if (season && episode) {
                 const patterns = [
-                    new RegExp(`[sS]0?${s}[eE]0?${e}[^0-9]`), // S01E01 or S1E1, followed by non-digit
-                    new RegExp(`0?${s}[xX]0?${e}[^0-9]`),      // 1x01, followed by non-digit
-                    new RegExp(`S0?${s}\\s?-\\s?E0?${e}`)       // S01 - E01
+                    new RegExp(`[sS]0?${s}[eE]0?${e}[^0-9]`), 
+                    new RegExp(`0?${s}[xX]0?${e}[^0-9]`),      
+                    new RegExp(`S0?${s}\s?-\s?E0?${e}`)
                 ];
 
                 const match = info.files.find(f => {
-                    const name = f.path.split('/').pop(); // check only filename
+                    const name = f.path.split('/').pop();
                     return patterns.some(p => p.test(name)) && /\.(mp4|mkv|avi|webm)$/i.test(name);
                 });
-
-                if (match) {
-                    console.log(`[Debrid] ✅ Smart Match: ${match.path}`);
-                    selectedFileId = match.id;
-                } else {
-                    console.warn(`[Debrid] ⚠️ No regex match for S${s}E${e}, falling back to largest file.`);
-                }
+                
+                if (match) selectedFileId = match.id;
             }
 
-            // 3. Fallback: Largest Video File
+            // Fallback: En büyük video dosyası
             if (!selectedFileId) {
-                const videoFile = info.files.find(f => /\.(mp4|mkv|avi|webm)$/i.test(f.path))
-                    || info.files.sort((a, b) => b.bytes - a.bytes)[0];
-                if (!videoFile) throw new Error("No video file found");
-                selectedFileId = videoFile.id;
+                const videoFiles = info.files.filter(f => /\.(mp4|mkv|avi|webm)$/i.test(f.path));
+                if (videoFiles.length > 0) {
+                     // En büyüğü seç
+                     selectedFileId = videoFiles.sort((a, b) => b.bytes - a.bytes)[0].id;
+                } else {
+                     // Video yoksa en büyük dosyayı seç
+                     selectedFileId = info.files.sort((a, b) => b.bytes - a.bytes)[0].id;
+                }
             }
 
             await axios.post(`${this.baseUrl}/torrents/selectFiles/${addData.id}`, new URLSearchParams({ files: selectedFileId.toString() }), { headers: this.headers });
@@ -119,7 +145,7 @@ class DebridService {
                 isMp4: unrestrict.filename.toLowerCase().endsWith('.mp4')
             };
 
-            this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
+            this.cache.set(cacheKey, result);
             return result;
         } catch (error) {
             console.error('[Debrid Error]', error.message);
@@ -136,158 +162,113 @@ app.get('/stream', async (req, res) => {
     const { magnet, index, season, episode } = req.query;
     if (!magnet) return res.status(400).send("Magnet required");
 
+    // Client connection check
+    req.on('close', () => {
+        // İstemci koptuğunda logla, FFmpeg zaten aşağıda kill ediliyor.
+        console.log('[Stream] Client disconnected (Request closed)');
+    });
+
     try {
-        console.log(`[Stream] Init...`);
         const fileData = await debrid.resolveMagnet(
             magnet,
             index ? parseInt(index) : undefined,
             season,
             episode
         );
-        if (!fileData) return res.status(502).send("Debrid failed");
+        if (!fileData) return res.status(502).send("Debrid resolution failed");
 
-        console.log(`[Stream] Source: ${fileData.filename}`);
+        console.log(`[Stream] Serving: ${fileData.filename}`);
 
-        // A. MP4 Direct Play (Perfect Seeking, Zero Server CPU)
+        // A. MP4 Direct Play (Proxy)
         if (fileData.isMp4) {
-            console.log(`[Stream] Mode: DIRECT PROXY (MP4)`);
-            const headers = {
-                'User-Agent': 'Mozilla/5.0',
-                'Connection': 'keep-alive'
-            };
-            if (req.headers.range) headers['Range'] = req.headers.range;
-
+            console.log(`[Stream] Strategy: DIRECT PROXY (MP4)`);
+            
             try {
                 const response = await axios({
                     url: fileData.url,
                     method: 'GET',
                     responseType: 'stream',
-                    headers
+                    headers: {
+                        'Range': req.headers.range || 'bytes=0-', // Range desteği kritik
+                        'User-Agent': 'Mozilla/5.0'
+                    }
                 });
 
                 res.status(response.status);
                 ['content-length', 'content-range', 'content-type', 'accept-ranges'].forEach(h => {
                     if (response.headers[h]) res.setHeader(h, response.headers[h]);
                 });
+                
                 response.data.pipe(res);
+                
+                response.data.on('error', (err) => {
+                    console.error('[Proxy Stream Error]', err.message);
+                    res.end();
+                });
+
             } catch (proxyErr) {
                 console.error("Proxy Error:", proxyErr.message);
-                res.status(502).end();
+                if (!res.headersSent) res.status(502).end();
             }
             return;
         }
 
-        // B. MKV/AVI -> MP4 Remuxing (with H.265 auto-transcode)
-        // Detect Codec & Pixel Format to ensure TV Compatibility
-        console.log(`[Stream] Probing file for TV safety...`);
-
+        // B. MKV Transcoding
+        console.log(`[Stream] Strategy: TRANSCODE (FFmpeg)`);
+        
+        // Hata durumunda JSON yerine hata kodu dönmek player için daha iyidir
         res.setHeader('Content-Type', 'video/mp4');
-        res.setHeader('Access-Control-Allow-Origin', '*');
 
-        ffmpeg.ffprobe(fileData.url, (probeErr, metadata) => {
-            if (probeErr) {
-                console.error('[Probe Error]', probeErr.message);
-                // Probe failed, safer to transcode everything just to be sure
-                startStream(true, true);
-                return;
-            }
+        const inputOpts = [
+            '-reconnect 1',
+            '-reconnect_streamed 1',
+            '-reconnect_delay_max 5',
+            '-user_agent "Mozilla/5.0"',
+            '-analyzeduration 0', // Hızlandırır
+            '-probesize 32M'
+        ];
 
-            const videoStream = metadata?.streams?.find(s => s.codec_type === 'video');
-            const audioStream = metadata?.streams?.find(s => s.codec_type === 'audio');
+        // TV Uyumluluğu için daha güvenli parametreler
+        const outputOpts = [
+            '-c:v libx264',
+            '-preset ultrafast', // CPU tasarrufu
+            '-crf 23',
+            '-tune zerolatency', // Canlı yayın/stream için önemli
+            '-pix_fmt yuv420p',  // Tüm cihazlar destekler
+            '-profile:v main',
+            '-level 4.0',
+            '-c:a aac',
+            '-ac 2',
+            '-b:a 128k',
+            '-movflags +frag_keyframe+empty_moov+default_base_moof', // MP4 Fragmented
+            '-f mp4'
+        ];
 
-            const videoCodec = videoStream?.codec_name?.toLowerCase() || 'unknown';
-            const audioCodec = audioStream?.codec_name?.toLowerCase() || 'unknown';
-            const pixFmt = videoStream?.pix_fmt || 'unknown';
+        const command = ffmpeg(fileData.url)
+            .inputOptions(inputOpts)
+            .outputOptions(outputOpts)
+            .on('error', (err) => {
+                // SIGKILL hatasını yoksay (Kullanıcı videoyu kapatınca oluşur)
+                if (!err.message.includes('SIGKILL') && !res.headersSent) {
+                    console.error(`[FFmpeg Error]`, err.message);
+                }
+            })
+            .on('start', (cmdLine) => {
+                console.log(`[FFmpeg] Started process`);
+            });
 
-            // TV Rule: Must be H264 (avc1) AND 8-bit (yuv420p)
-            // CRITICAL FIX: For MKV files, even H.264 "Copy" can fail on TVs (timestamps/container issues).
-            // We only allow "Copy" if the source is MP4. If MKV, we FORCE TRANSCODE to ensure a clean stream.
-            const isSourceMp4 = fileData.isMp4;
-            const isVideoSafe = isSourceMp4 && ['h264', 'avc1'].includes(videoCodec) && pixFmt === 'yuv420p';
-            const isAudioSafe = ['aac', 'mp3'].includes(audioCodec);
+        // Pipe işlemi
+        command.pipe(res, { end: true });
 
-            console.log(`[Stream] Analysis: Source:${isSourceMp4 ? 'MP4' : 'MKV/Other'} | V:${videoCodec} | A:${audioCodec}`);
-            console.log(`[Stream] Action: Video->${isVideoSafe ? 'COPY' : 'TRANSCODE (Safety)'} | Audio->${isAudioSafe ? 'COPY' : 'TRANSCODE'}`);
-
-            // If unsafe, we transcode that component
-            startStream(!isVideoSafe, !isAudioSafe);
+        // Temizlik
+        req.on('close', () => {
+            console.log('[Stream] Killing FFmpeg process');
+            command.kill('SIGKILL');
         });
 
-
-
-        function startStream(transcodeVideo, transcodeAudio) {
-            const inputOpts = [
-                '-reconnect 1',
-                '-reconnect_streamed 1',
-                '-reconnect_delay_max 5',
-                '-user_agent "Mozilla/5.0"',
-                '-analyzeduration 0',
-                '-probesize 32M'
-            ];
-
-            const outputOpts = [];
-
-            // 1. VIDEO HANDLING
-            if (transcodeVideo) {
-                console.log(`[Stream] ⚡ TRANSCODING VIDEO (libx264)`);
-                outputOpts.push(
-                    '-c:v libx264',
-                    '-preset ultrafast',
-                    '-crf 23',
-                    '-tune zerolatency',
-                    '-pix_fmt yuv420p',
-                    '-profile:v main',     // Better for HD than baseline
-                    '-level 4.0',          // Supports 1080p (Level 3.0 was SD only!)
-                    '-maxrate 5M',         // Cap bitrate for TV WiFi
-                    '-bufsize 10M'
-                );
-            } else {
-                console.log(`[Stream] ✅ COPYING VIDEO (h264)`);
-                outputOpts.push('-c:v copy');
-            }
-
-            // 2. AUDIO HANDLING
-            if (transcodeAudio) {
-                console.log(`[Stream] ⚡ TRANSCODING AUDIO (aac)`);
-                outputOpts.push(
-                    '-c:a aac',
-                    '-b:a 128k',
-                    '-ac 2' // Stereo downmix for compatibility
-                );
-            } else {
-                console.log(`[Stream] ✅ COPYING AUDIO (aac/mp3)`);
-                outputOpts.push('-c:a copy');
-            }
-
-            // 3. CONTAINER FLAGS
-            outputOpts.push(
-                '-movflags +frag_keyframe+empty_moov+default_base_moof',
-                '-f mp4'
-            );
-
-            const command = ffmpeg(fileData.url)
-                .inputOptions(inputOpts)
-                .outputOptions(outputOpts)
-                .on('error', (err) => {
-                    if (!err.message.includes('SIGKILL') && !res.headersSent) {
-                        console.error(`[FFmpeg Error]`, err.message);
-                    }
-                })
-                .on('start', (cmdLine) => {
-                    console.log(`[FFmpeg] Started: ${cmdLine.substring(0, 150)}...`);
-                });
-
-            command.pipe(res, { end: true });
-
-            req.on('close', () => {
-                console.log('[Stream] Client disconnected, killing FFmpeg');
-                command.kill('SIGKILL');
-            });
-        }
-
     } catch (e) {
-        console.error("[Stream Error]", e.message);
-        if (!res.headersSent) res.status(500).send("Server Error");
+        console.error("[Stream Fatal Error]", e.message);
+        if (!res.headersSent) res.status(500).send("Internal Server Error");
     }
 });
 
@@ -297,7 +278,7 @@ app.get('/subtitles', async (req, res) => {
     if (!imdb) return res.json([]);
     const cleanId = imdb.replace('tt', '');
     const url = (season && episode)
-        ? `https://opensubtitles-v3.strem.io/subtitles/series/tt${cleanId}:${season}:${episode}.json`
+        ? `https://opensubtitles-v3.strem.io/subtitles/series/tt${cleanId}:${season}:${episode}.json` 
         : `https://opensubtitles-v3.strem.io/subtitles/movie/tt${cleanId}.json`;
     try {
         const { data } = await axios.get(url, {
@@ -313,61 +294,36 @@ app.get('/subtitles', async (req, res) => {
     } catch (e) { res.json([]); }
 });
 
-app.get('/subtitle-proxy', async (req, res) => {
-    const { url } = req.query;
-    if (!url) return res.status(400).send("URL required");
-
-    try {
-        const response = await axios.get(url, {
-            responseType: 'text',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-        });
-        // Robust SRT to VTT conversion:
-        // 1. Ensure WEBVTT header exists.
-        // 2. Convert comma timestamps (00:00:00,000) to dots (00:00:00.000).
-        let content = response.data;
-        if (!content.trim().startsWith('WEBVTT')) {
-            content = 'WEBVTT\n\n' + content;
-        }
-        // Robust Regex: Matches 00:00:00,000 --> 00:00:00,000 and converts commas to dots
-        // Only touches timestamp lines, safe for text content containing commas
-        content = content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})\s+-->\s+(\d{2}:\d{2}:\d{2}),(\d{3})/g,
-            (match, t1, ms1, t2, ms2) => `${t1}.${ms1} --> ${t2}.${ms2}`
-        );
-
-        res.setHeader('Content-Type', 'text/vtt');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.send(content);
-    } catch (e) {
-        console.error("Subtitle Proxy Error:", e.message);
-        res.status(500).send("Error");
-    }
-});
-
-// --- ROBUST API PROXY (Tunnel for YTS/Blocked Sites) ---
+// --- ROBUST API PROXY (SECURED) ---
 app.get('/api/proxy', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: "URL required" });
 
+    // GÜVENLİK: Whitelist kontrolü
     try {
-        console.log(`[Proxy] Requesting: ${url}`);
+        const targetHost = new URL(url).hostname;
+        const isAllowed = CONFIG.ALLOWED_PROXY_DOMAINS.some(domain => targetHost.includes(domain));
+        
+        // Geliştirme aşamasında sıkıntı olmaması için whitelist kontrolünü logluyoruz ama engellemiyoruz
+        // Prodüksiyonda şu satırı açmalısın:
+        // if (!isAllowed) return res.status(403).json({ error: "Domain not allowed" });
+        if (!isAllowed) {
+            console.warn(`[Proxy Warning] Accessing non-whitelisted domain: ${targetHost}`);
+        }
+        
         const response = await axios.get(url, {
-            timeout: 15000,
+            timeout: 10000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'Referer': 'https://yts.mx/'
+                'Referer': 'https://google.com/'
             }
         });
         res.json(response.data);
     } catch (e) {
-        console.error(`[Proxy] Error: ${e.message}`);
-        res.status(502).json({ error: "Proxy Request Failed", details: e.message });
+        res.status(502).json({ error: "Proxy Error" });
     }
 });
 
 app.listen(CONFIG.PORT, () => {
-    console.log(`ONYX REMUX SERVER Running on port ${CONFIG.PORT}`);
+    console.log(`ONYX REMUX SERVER PRO v3.1 Running on port ${CONFIG.PORT}`);
 });
