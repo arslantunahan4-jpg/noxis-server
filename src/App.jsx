@@ -24,7 +24,7 @@ const App = () => {
     const isModalOpen = location.pathname.startsWith('/watch');
 
     // --- API URL OVERRIDE LOGIC ---
-    useEffect(() => {
+    React.useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tunnelUrl = params.get('t');
         if (tunnelUrl) {
