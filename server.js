@@ -61,10 +61,49 @@ class DebridService {
             ttl: 1000 * 60 * 60, 
         });
         this.baseUrl = 'https://api.real-debrid.com/rest/1.0';
+        
+        // --- GÜVENLİK: API Rate Limiter ---
+        // Real-Debrid limitlerine takılmamak için istekler arasına zorunlu bekleme koyuyoruz.
+        this.lastCallTime = 0;
+        this.minDelay = 600; // Her istek arası minimum 600ms (Güvenli Bölge)
     }
 
     get headers() {
-        return { 'Authorization': `Bearer ${CONFIG.REAL_DEBRID_TOKEN}` };
+        return { 
+            'Authorization': `Bearer ${CONFIG.REAL_DEBRID_TOKEN}`,
+            'User-Agent': 'NoxisStreamingApp/1.0' // RD'ye kimliğimizi açıkça belirtiyoruz
+        };
+    }
+
+    // Güvenli İstek Yöneticisi (Rate Limit & Retry)
+    async _safeRequest(method, endpoint, body = null, retries = 3) {
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        
+        // Rate Limiting Enforce
+        const now = Date.now();
+        const timeSinceLast = now - this.lastCallTime;
+        if (timeSinceLast < this.minDelay) {
+            await sleep(this.minDelay - timeSinceLast);
+        }
+        this.lastCallTime = Date.now();
+
+        try {
+            const opts = { headers: this.headers };
+            let response;
+            
+            if (method === 'POST') response = await axios.post(`${this.baseUrl}${endpoint}`, body, opts);
+            else response = await axios.get(`${this.baseUrl}${endpoint}`, opts);
+
+            return response.data;
+        } catch (error) {
+            // Eğer Rate Limit (429) veya Server Hatası (503) ise bekle ve tekrar dene
+            if (retries > 0 && (error.response?.status === 429 || error.response?.status >= 500)) {
+                console.warn(`[Debrid] Rate Limit/Error (${error.response?.status}). Retrying...`);
+                await sleep(2000); // 2 saniye bekle
+                return this._safeRequest(method, endpoint, body, retries - 1);
+            }
+            throw error;
+        }
     }
 
     async resolveMagnet(magnet, fileIndex, season, episode) {
@@ -82,24 +121,24 @@ class DebridService {
             const form = new URLSearchParams();
             form.append('magnet', magnet);
 
-            // Real-Debrid API Call
-            const { data: addData } = await axios.post(`${this.baseUrl}/torrents/addMagnet`, form, { headers: this.headers });
+            // GÜVENLİ API ÇAĞRISI
+            const addData = await this._safeRequest('POST', '/torrents/addMagnet', form);
             
             // Wait for file parsing
             let attempts = 0;
             let info;
-            while(attempts < 10) {
-                await sleep(500);
-                const infoRes = await axios.get(`${this.baseUrl}/torrents/info/${addData.id}`, { headers: this.headers });
-                info = infoRes.data;
+            while(attempts < 15) { // Deneme sayısını artırdık
+                await sleep(1000); // Bekleme süresini artırdık (API spam'i önlemek için)
+                info = await this._safeRequest('GET', `/torrents/info/${addData.id}`);
+                
                 if(info.status === 'waiting_files_selection') break;
-                if(info.status === 'downloaded') break; // Zaten inmiş olabilir
+                if(info.status === 'downloaded') break; 
                 attempts++;
             }
 
             let selectedFileId;
             
-            if (!info.files) throw new Error("Files not ready");
+            if (!info || !info.files) throw new Error("Files not ready");
             
             // Regex mantığı
             const s = parseInt(season);
@@ -132,13 +171,15 @@ class DebridService {
                 }
             }
 
-            await axios.post(`${this.baseUrl}/torrents/selectFiles/${addData.id}`, new URLSearchParams({ files: selectedFileId.toString() }), { headers: this.headers });
+            // Dosya seçimi
+            await this._safeRequest('POST', `/torrents/selectFiles/${addData.id}`, new URLSearchParams({ files: selectedFileId.toString() }));
             await sleep(500);
 
-            const { data: freshInfo } = await axios.get(`${this.baseUrl}/torrents/info/${addData.id}`, { headers: this.headers });
+            const freshInfo = await this._safeRequest('GET', `/torrents/info/${addData.id}`);
             if (!freshInfo.links.length) throw new Error("No links generated");
 
-            const { data: unrestrict } = await axios.post(`${this.baseUrl}/unrestrict/link`, new URLSearchParams({ link: freshInfo.links[0] }), { headers: this.headers });
+            // Unrestrict Link
+            const unrestrict = await this._safeRequest('POST', '/unrestrict/link', new URLSearchParams({ link: freshInfo.links[0] }));
 
             const result = {
                 url: unrestrict.download,
