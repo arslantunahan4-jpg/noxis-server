@@ -296,6 +296,8 @@ app.get('/stream', async (req, res) => {
                 });
             });
 
+            console.log('[Stream] Probe Data:', JSON.stringify(metadata.streams.map(s => ({ type: s.codec_type, codec: s.codec_name, pix_fmt: s.pix_fmt })), null, 2));
+
             const videoStream = metadata.streams.find(s => s.codec_type === 'video');
             const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
 
@@ -323,6 +325,8 @@ app.get('/stream', async (req, res) => {
 
         outputArgs.unshift(`-c:v ${vCodec}`);
         outputArgs.push(`-c:a ${aCodec}`);
+
+        console.log('[Stream] FFmpeg Output Args:', outputArgs.join(' '));
 
         const command = ffmpeg(fileData.url)
             .inputOptions(inputArgs)
