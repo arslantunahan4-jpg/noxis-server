@@ -644,9 +644,10 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
 
                             <div style={{ overflowY: 'auto', flex: 1 }}>
                                 {torrentOptions.map((torrent, index) => {
-                                    const isTurkish = ['tr', 'tur', 'turkish', 'dublaj', 'dual', 'ses'].some(k =>
-                                        (torrent.title + (torrent.name || '')).toLowerCase().includes(k)
-                                    );
+                                    // Precise Turkish content detection - requires word boundaries or delimiters
+                                    const fullTitle = (torrent.title + ' ' + (torrent.name || '')).toLowerCase();
+                                    const isTurkish = /\b(tur|turkish|dublaj|turkce|türkçe)\b/i.test(fullTitle) ||
+                                        /[\.\-\s_]tr[\.\-\s_]/i.test(fullTitle + ' ');
 
                                     return (
                                         <button
