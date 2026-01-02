@@ -666,14 +666,17 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <span style={{
-                                                        background: torrent.quality?.includes('1080') || torrent.quality?.includes('4K') || torrent.quality?.includes('2160')
-                                                            ? 'linear-gradient(135deg, #00C9FF, #92FE9D)'
-                                                            : 'rgba(255, 255, 255, 0.2)',
+                                                        background: torrent.quality?.includes('MP4')
+                                                            ? 'linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%)' // MP4 (Direct Play) - Pinkish
+                                                            : (torrent.quality?.includes('1080') || torrent.quality?.includes('4K') || torrent.quality?.includes('2160')
+                                                                ? 'linear-gradient(135deg, #00C9FF, #92FE9D)' // High Quality - Blue/Green
+                                                                : 'rgba(255, 255, 255, 0.2)'), // Standard
                                                         padding: '4px 10px',
                                                         borderRadius: '6px',
                                                         fontSize: '13px',
                                                         fontWeight: '700',
-                                                        color: '#000'
+                                                        color: '#000',
+                                                        boxShadow: torrent.quality?.includes('MP4') ? '0 2px 10px rgba(255, 154, 158, 0.4)' : 'none'
                                                     }}>
                                                         {torrent.quality || 'Unknown'}
                                                     </span>

@@ -96,7 +96,9 @@ async function searchTorrentio(imdbId, type = 'movie', season = null, episode = 
             let quality = qualityMatch ? qualityMatch[1].toUpperCase() : 'Unknown';
 
             // Detect MP4
-            if (/\.mp4$/i.test(title) || /mp4/i.test(name)) {
+            // Strict check: Must end with .mp4 (handling potential metadata after newline in Torrentio titles)
+            const cleanTitle = title.split('\n')[0].trim();
+            if (/\.mp4$/i.test(cleanTitle)) {
                 quality += ' MP4';
             }
 
@@ -146,7 +148,9 @@ async function searchEZTV(imdbId, season, episode) {
                 // Detect quality from title/filename
                 const qualityMatch = (t.title || '').match(/(\d{3,4}p|4K|2160p)/i);
                 let quality = qualityMatch ? qualityMatch[1].toUpperCase() : 'HD';
-                if (/\.mp4$/i.test(t.filename) || /mp4/i.test(t.title)) quality += ' MP4';
+                
+                // Strict MP4 check
+                if (/\.mp4$/i.test(t.filename) || /\.mp4$/i.test(t.title)) quality += ' MP4';
 
                 return {
                     infoHash: t.hash,
@@ -193,7 +197,8 @@ async function searchPirateBay(imdbId, type = 'movie', season = null, episode = 
         return matches.map(item => {
              const qualityMatch = item.name.match(/(\d{3,4}p|4K|2160p)/i);
              let quality = qualityMatch ? qualityMatch[1].toUpperCase() : 'Unknown';
-             if (/mp4/i.test(item.name)) quality += ' MP4';
+             // Strict MP4 Check
+             if (/\.mp4$/i.test(item.name)) quality += ' MP4';
 
              return {
                  infoHash: item.info_hash,

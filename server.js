@@ -34,6 +34,7 @@ const CONFIG = {
 ffmpeg.setFfprobePath(CONFIG.FFPROBE_PATH);
 
 const app = express();
+app.set('trust proxy', 1); // Enable trust proxy for rate limiter
 
 // --- MIDDLEWARES ---
 app.use(helmet({ contentSecurityPolicy: false })); // Temel güvenlik başlıkları
