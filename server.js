@@ -42,6 +42,12 @@ app.use(cors()); // CORS
 app.use(compression()); // Gzip sıkıştırma
 app.use(express.json());
 
+// --- GLOBAL REQUEST LOGGER ---
+app.use((req, res, next) => {
+    console.log(`[Incoming] ${req.method} ${req.url} | IP: ${req.ip}`);
+    next();
+});
+
 // Rate Limiter: 15 dakikada max 500 istek (Genel API için)
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
