@@ -6,8 +6,8 @@ import { scrapeHdfilmizle, isNativePlatform } from '../services/nativeHttp';
 import { GlassPlayer } from './player/GlassPlayer';
 import { searchTorrents } from '../services/torrent-aggregator';
 
-// VPS veya Backend URL'si (.env dosyasından gelir)
-const SERVER_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// VPS veya Backend URL'si (.env dosyasından gelir veya URL'den override edilir)
+const SERVER_URL = localStorage.getItem('noxis_api_url') || import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const createSlug = (text) => {
     if (!text) return "";

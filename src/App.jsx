@@ -23,6 +23,20 @@ const App = () => {
     const isPlayerOpen = location.pathname.startsWith('/play');
     const isModalOpen = location.pathname.startsWith('/watch');
 
+    // --- API URL OVERRIDE LOGIC ---
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tunnelUrl = params.get('t');
+        if (tunnelUrl) {
+            console.log('[App] New API URL detected:', tunnelUrl);
+            localStorage.setItem('noxis_api_url', tunnelUrl);
+            // Clean URL
+            window.history.replaceState({}, '', location.pathname);
+            // Reload to apply changes immediately if needed, or just let the components pick it up
+            window.location.reload(); 
+        }
+    }, [location.search, location.pathname]);
+
     useTVNavigation(isModalOpen, isPlayerOpen);
     useGamepadNavigation();
     useSmartMouse(); // Hides cursor when inactive

@@ -164,6 +164,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [showCenterPlay, setShowCenterPlay] = useState(false); // For animation
 
+    const API_URL = localStorage.getItem('noxis_api_url') || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
     const handleLoadedMetadata = () => {
         if (imdbId) {
             const saved = getProgress(imdbId, season, episode);
@@ -456,7 +458,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
                         <track
                             key={`${i}-${subtitleOffset}`} // Force re-render on offset change
                             kind="subtitles"
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/subtitle-proxy?url=${encodeURIComponent(s.url)}&offset=${subtitleOffset}`}
+                            src={`${API_URL}/subtitle-proxy?url=${encodeURIComponent(s.url)}&offset=${subtitleOffset}`}
                             label={`${s.label} ${subtitleOffset !== 0 ? `(${subtitleOffset > 0 ? '+' : ''}${subtitleOffset}s)` : ''}`}
                             srcLang={s.lang}
                             default={i === activeSubIndex}

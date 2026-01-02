@@ -221,7 +221,7 @@ async function searchPirateBay(imdbId, type = 'movie', season = null, episode = 
 // --- YTS API (Movies Only) ---
 async function searchYTS(imdbId) {
     let movies = [];
-    const proxyBase = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const proxyBase = localStorage.getItem('noxis_api_url') || import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     for (const domain of CONFIG.YTS_MIRRORS) {
         try {
