@@ -158,6 +158,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
     const [isLoading, setIsLoading] = useState(true);
     const [showSubMenu, setShowSubMenu] = useState(false);
     const [activeSubIndex, setActiveSubIndex] = useState(-1);
+    const [subtitleOffset, setSubtitleOffset] = useState(0); // Sync offset in seconds
     const [hoverProgress, setHoverProgress] = useState(false);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [showCenterPlay, setShowCenterPlay] = useState(false); // For animation
@@ -168,6 +169,16 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
         const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
         return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}` : `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    // Subtitle Offset Handler
+    const adjustSubtitleOffset = (amount) => {
+        setSubtitleOffset(prev => {
+            const newVal = Math.round((prev + amount) * 10) / 10; // Avoid float errors
+            return newVal;
+        });
+        // Briefly show controls
+        handleInteraction();
     };
 
     const handleInteraction = useCallback(() => {
@@ -422,11 +433,12 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                 >
                     {subtitles.map((s, i) => (
                         <track
-                            key={i}
+                            key={`${i}-${subtitleOffset}`} // Force re-render on offset change
                             kind="subtitles"
-                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/subtitle-proxy?url=${encodeURIComponent(s.url)}`}
-                            label={s.label}
+                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/subtitle-proxy?url=${encodeURIComponent(s.url)}&offset=${subtitleOffset}`}
+                            label={`${s.label} ${subtitleOffset !== 0 ? `(${subtitleOffset > 0 ? '+' : ''}${subtitleOffset}s)` : ''}`}
                             srcLang={s.lang}
+                            default={i === activeSubIndex}
                         />
                     ))}
                 </video>
@@ -503,6 +515,23 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                                         <AnimatePresence>
                                             {showSubMenu && (
                                                 <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={styles.menu}>
+                                                    <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px' }}>
+                                                        <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Senkron Ayarı ({subtitleOffset}s)</div>
+                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); adjustSubtitleOffset(-0.5); }}
+                                                                style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer', flex: 1 }}
+                                                            >
+                                                                -0.5s
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); adjustSubtitleOffset(0.5); }}
+                                                                style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer', flex: 1 }}
+                                                            >
+                                                                +0.5s
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                     <button style={{ ...styles.menuItem, ...(activeSubIndex === -1 ? styles.activeItem : {}) }} onClick={() => switchSubtitle(-1)}>
                                                         <span>Kapalı</span>
                                                         {activeSubIndex === -1 && <i className="fas fa-check" style={{ color: '#E50914' }} />}

@@ -289,10 +289,92 @@ app.get('/subtitles', async (req, res) => {
             }
         });
         const subs = (data.subtitles || [])
-            .filter(s => ['tur', 'eng'].includes(s.lang))
+            .filter(s => ['tur'].includes(s.lang))
             .map(s => ({ id: s.id, lang: s.lang, url: s.url, label: s.lang.toUpperCase() }));
         res.json(subs);
     } catch (e) { res.json([]); }
+});
+
+// --- SUBTITLE PROXY (FIX CORS & ROBUST VTT CONVERSION WITH OFFSET) ---
+app.get('/subtitle-proxy', async (req, res) => {
+    const { url, offset } = req.query;
+    if (!url) return res.status(400).send("URL required");
+
+    const timeOffset = parseFloat(offset) || 0;
+
+    try {
+        const response = await axios.get(url, {
+            responseType: 'text',
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        let content = response.data;
+        if (typeof content !== 'string') content = content.toString();
+
+        // 1. Remove BOM
+        if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
+
+        // 2. Normalize Line Endings
+        content = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+        // Helper to shift timestamp
+        const shiftTime = (match, p1, p2, p3, p4) => {
+            if (!timeOffset) return match;
+            
+            const hours = parseInt(p1);
+            const minutes = parseInt(p2);
+            const seconds = parseInt(p3);
+            const ms = parseInt(p4);
+
+            let totalMs = (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + ms;
+            totalMs += (timeOffset * 1000);
+
+            if (totalMs < 0) totalMs = 0;
+
+            const h = Math.floor(totalMs / 3600000);
+            const m = Math.floor((totalMs % 3600000) / 60000);
+            const s = Math.floor((totalMs % 60000) / 1000);
+            const newMs = totalMs % 1000;
+
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${newMs.toString().padStart(3, '0')}`;
+        };
+
+        // 3. SRT to VTT Conversion & Shifting
+        // Regex for SRT timestamp: 00:00:20,000 --> 00:00:22,000
+        const srtRegex = /(\d{2}):(\d{2}):(\d{2}),(\d{3})/g;
+        
+        // Regex for VTT timestamp: 00:00:20.000
+        const vttRegex = /(\d{2}):(\d{2}):(\d{2})\.(\d{3})/g;
+
+        if (!content.trim().startsWith('WEBVTT')) {
+            // SRT -> VTT
+            content = 'WEBVTT\n\n' + content.replace(srtRegex, (match, h, m, s, ms) => {
+                // First shift, then format with dot
+                if (timeOffset !== 0) {
+                     return shiftTime(match, h, m, s, ms);
+                }
+                return `${h}:${m}:${s}.${ms}`;
+            });
+        } else {
+            // VTT -> VTT (Just shift)
+            if (timeOffset !== 0) {
+                content = content.replace(vttRegex, (match, h, m, s, ms) => shiftTime(match, h, m, s, ms));
+            }
+             // Ensure blank line
+             if (!content.startsWith('WEBVTT\n\n') && content.startsWith('WEBVTT\n')) {
+                 content = content.replace('WEBVTT\n', 'WEBVTT\n\n');
+             }
+        }
+
+        res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache'); // Don't cache offset versions
+        res.send(content);
+
+    } catch (e) {
+        console.error("[Subtitle Proxy Error]", e.message);
+        res.status(502).send("Error fetching subtitle");
+    }
 });
 
 // --- ROBUST API PROXY (SECURED) ---
