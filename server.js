@@ -299,11 +299,12 @@ app.get('/stream', async (req, res) => {
             const videoStream = metadata.streams.find(s => s.codec_type === 'video');
             const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
 
-            if (videoStream && videoStream.codec_name === 'h264') {
-                console.log('[Stream] Video Codec: H264 (Copy)');
+            // Browser Compatibility Check: Only copy H.264 8-bit (yuv420p)
+            if (videoStream && videoStream.codec_name === 'h264' && videoStream.pix_fmt === 'yuv420p') {
+                console.log('[Stream] Video Codec: H264 8-bit (Copy)');
                 vCodec = 'copy';
             } else {
-                console.log(`[Stream] Video Codec: ${videoStream?.codec_name} (Transcode)`);
+                console.log(`[Stream] Video Codec: ${videoStream?.codec_name} (${videoStream?.pix_fmt}) -> Transcoding to H264 8-bit`);
                 outputArgs.push('-crf 23', '-profile:v main', '-level 4.0', '-pix_fmt yuv420p');
             }
 

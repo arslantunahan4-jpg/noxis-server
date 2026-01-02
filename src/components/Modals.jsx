@@ -187,7 +187,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                     setSubtitles([]);
                 }
             } catch (e) {
-                console.error("[Subtitles] Altyazı yüklenirken hata:", e);
+                console.error("[Subtitles] Altyazı yüklenirken hata:", e.message || e);
                 setSubtitles([]);
             }
 
