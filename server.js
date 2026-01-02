@@ -360,22 +360,43 @@ app.get('/stream', async (req, res) => {
 app.get('/subtitles', async (req, res) => {
     const { imdb, season, episode } = req.query;
     if (!imdb) return res.json([]);
+    
     const cleanId = imdb.replace('tt', '');
+    // OpenSubtitles v3 API (Unofficial but widely used)
     const url = (season && episode)
         ? `https://opensubtitles-v3.strem.io/subtitles/series/tt${cleanId}:${season}:${episode}.json` 
         : `https://opensubtitles-v3.strem.io/subtitles/movie/tt${cleanId}.json`;
+        
     try {
+        console.log(`[Subtitles] Fetching from: ${url}`);
         const { data } = await axios.get(url, {
-            timeout: 3000,
+            timeout: 5000, // Increased timeout
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
-        const subs = (data.subtitles || [])
-            .filter(s => ['tur'].includes(s.lang))
-            .map(s => ({ id: s.id, lang: s.lang, url: s.url, label: s.lang.toUpperCase() }));
+
+        if (!data || !data.subtitles) {
+            console.log('[Subtitles] No subtitles found in response.');
+            return res.json([]);
+        }
+
+        const subs = data.subtitles
+            .filter(s => ['tur', 'eng'].includes(s.lang)) // TR and EN only
+            .map(s => ({ 
+                id: s.id, 
+                lang: s.lang, 
+                url: s.url, 
+                label: s.lang === 'tur' ? 'Türkçe' : 'English' 
+            }));
+            
+        console.log(`[Subtitles] Found ${subs.length} subtitles.`);
         res.json(subs);
-    } catch (e) { res.json([]); }
+    } catch (e) { 
+        console.error(`[Subtitles] Error: ${e.message}`);
+        // Fallback or just empty
+        res.json([]); 
+    }
 });
 
 // --- SUBTITLE PROXY (FIX CORS & ROBUST VTT CONVERSION WITH OFFSET) ---
