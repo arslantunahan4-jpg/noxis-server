@@ -575,6 +575,11 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                         streamUrl={streamUrl}
                         subtitles={subtitles}
                         movieTitle={movie?.title || movie?.name}
+                        imdbId={currentImdbId}
+                        season={isSeries ? selectedTorrentSeason : null}
+                        episode={isSeries ? selectedTorrentEpisode : null}
+                        poster={movie?.poster_path}
+                        backdrop={movie?.backdrop_path}
                         onClose={() => { setShowMagnetPlayer(false); setStreamUrl(''); setSubtitles([]); }}
                     />
                 )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Hls from 'hls.js';
+import { saveProgress, getProgress } from '../../utils/watchHistory';
 
 const HIDE_CONTROLS_DELAY = 3000;
 
@@ -140,7 +141,7 @@ const styles = {
     }
 };
 
-export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) => {
+export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, imdbId, season, episode, poster, backdrop }) => {
     const videoRef = useRef(null);
     const containerRef = useRef(null);
     const hlsRef = useRef(null);
@@ -162,6 +163,17 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
     const [hoverProgress, setHoverProgress] = useState(false);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [showCenterPlay, setShowCenterPlay] = useState(false); // For animation
+
+    const handleLoadedMetadata = () => {
+        if (imdbId) {
+            const saved = getProgress(imdbId, season, episode);
+            if (saved && saved.currentTime > 0) {
+                if(videoRef.current) {
+                    videoRef.current.currentTime = saved.currentTime;
+                }
+            }
+        }
+    };
 
     const formatTime = (seconds) => {
         if (!seconds || isNaN(seconds)) return "00:00";
@@ -238,6 +250,14 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
     const onTimeUpdate = () => {
         if (!videoRef.current) return;
         const vid = videoRef.current;
+
+        // Save Progress
+        if (imdbId && vid.currentTime > 0 && vid.duration > 0 && Math.floor(vid.currentTime) % 5 === 0) {
+             saveProgress(imdbId, vid.currentTime, vid.duration, {
+                 season, episode, title: movieTitle, poster_path: poster, backdrop_path: backdrop
+             });
+        }
+
         setCurrentTime(vid.currentTime);
         setDuration(vid.duration || 0);
         setProgress((vid.currentTime / vid.duration) * 100 || 0);
@@ -430,6 +450,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle }) 
                     ref={videoRef} style={styles.video}
                     onWaiting={() => setIsLoading(true)} onPlaying={() => { setIsLoading(false); setIsPlaying(true); }}
                     onTimeUpdate={onTimeUpdate} onEnded={onClose} muted={isMuted} crossOrigin="anonymous" playsInline autoPlay
+                    onLoadedMetadata={handleLoadedMetadata}
                 >
                     {subtitles.map((s, i) => (
                         <track
