@@ -214,40 +214,77 @@ app.get('/stream', async (req, res) => {
             return;
         }
 
-        // B. MKV Transcoding
+        // B. MKV Transcoding (Smart Remux)
         console.log(`[Stream] Strategy: TRANSCODE (FFmpeg)`);
         
         // Hata durumunda JSON yerine hata kodu dönmek player için daha iyidir
         res.setHeader('Content-Type', 'video/mp4');
 
-        const inputOpts = [
-            '-reconnect 1',
-            '-reconnect_streamed 1',
+        // 1. Probe & Analyze
+        let inputArgs = [
+            '-reconnect 1', 
+            '-reconnect_streamed 1', 
             '-reconnect_delay_max 5',
             '-user_agent "Mozilla/5.0"',
-            '-analyzeduration 0', // Hızlandırır
-            '-probesize 32M'
+            '-analyzeduration 10000000', // 10s analysis
+            '-probesize 10000000'
         ];
 
-        // TV Uyumluluğu için daha güvenli parametreler
-        const outputOpts = [
-            '-c:v libx264',
-            '-preset ultrafast', // CPU tasarrufu
-            '-crf 23',
-            '-tune zerolatency', // Canlı yayın/stream için önemli
-            '-pix_fmt yuv420p',  // Tüm cihazlar destekler
-            '-profile:v main',
-            '-level 4.0',
-            '-c:a aac',
-            '-ac 2',
-            '-b:a 128k',
-            '-movflags +frag_keyframe+empty_moov+default_base_moof', // MP4 Fragmented
-            '-f mp4'
+        // Seek Support (Query Param)
+        const { startTime } = req.query;
+        if (startTime) {
+            console.log(`[Stream] Seeking to: ${startTime}s`);
+            inputArgs.push(`-ss ${startTime}`);
+        }
+
+        const outputArgs = [
+            '-movflags +frag_keyframe+empty_moov+default_base_moof',
+            '-f mp4',
+            '-preset ultrafast',
+            '-tune zerolatency'
         ];
+
+        // Codec Selection
+        let vCodec = 'libx264';
+        let aCodec = 'aac';
+        
+        try {
+            const metadata = await new Promise((resolve, reject) => {
+                ffmpeg.ffprobe(fileData.url, (err, data) => {
+                    if (err) reject(err); else resolve(data);
+                });
+            });
+
+            const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+            const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+
+            if (videoStream && videoStream.codec_name === 'h264') {
+                console.log('[Stream] Video Codec: H264 (Copy)');
+                vCodec = 'copy';
+            } else {
+                console.log(`[Stream] Video Codec: ${videoStream?.codec_name} (Transcode)`);
+                outputArgs.push('-crf 23', '-profile:v main', '-level 4.0', '-pix_fmt yuv420p');
+            }
+
+            if (audioStream && (audioStream.codec_name === 'aac' || audioStream.codec_name === 'mp3')) {
+                console.log(`[Stream] Audio Codec: ${audioStream.codec_name} (Copy)`);
+                aCodec = 'copy';
+            } else {
+                console.log(`[Stream] Audio Codec: ${audioStream?.codec_name} (Transcode)`);
+                outputArgs.push('-ac 2', '-b:a 128k');
+            }
+
+        } catch (probeErr) {
+            console.warn('[Stream] Probe failed, defaulting to Transcode', probeErr.message);
+            outputArgs.push('-crf 23', '-pix_fmt yuv420p', '-ac 2', '-b:a 128k');
+        }
+
+        outputArgs.unshift(`-c:v ${vCodec}`);
+        outputArgs.push(`-c:a ${aCodec}`);
 
         const command = ffmpeg(fileData.url)
-            .inputOptions(inputOpts)
-            .outputOptions(outputOpts)
+            .inputOptions(inputArgs)
+            .outputOptions(outputArgs)
             .on('error', (err) => {
                 // SIGKILL hatasını yoksay (Kullanıcı videoyu kapatınca oluşur)
                 if (!err.message.includes('SIGKILL') && !res.headersSent) {
