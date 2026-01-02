@@ -238,7 +238,7 @@ async function searchYTS(imdbId) {
                 return torrents.map(t => ({
                     infoHash: t.hash,
                     title: movie.title,
-                    quality: t.quality || 'Unknown',
+                    quality: (t.quality || 'Unknown') + ' YTS',
                     seeds: t.seeds || 0,
                     leechers: t.peers || 0,
                     size: t.size || 'Unknown',
