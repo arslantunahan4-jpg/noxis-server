@@ -163,8 +163,63 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
     const [hoverProgress, setHoverProgress] = useState(false);
     const [showVolumeSlider, setShowVolumeSlider] = useState(false);
     const [showCenterPlay, setShowCenterPlay] = useState(false); // For animation
+    
+    // Audio Tracks State
+    const [audioTracks, setAudioTracks] = useState([]);
+    const [selectedAudioIndex, setSelectedAudioIndex] = useState(0);
+    const [showAudioMenu, setShowAudioMenu] = useState(false);
+    const [currentStreamUrl, setCurrentStreamUrl] = useState(streamUrl);
 
     const API_URL = localStorage.getItem('noxis_api_url') || import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+    // Fetch Media Info (Audio Tracks)
+    useEffect(() => {
+        const loadMediaInfo = async () => {
+            try {
+                // Extract magnet from streamUrl
+                const urlObj = new URL(streamUrl);
+                const magnet = urlObj.searchParams.get('magnet');
+                const season = urlObj.searchParams.get('season');
+                const episode = urlObj.searchParams.get('episode');
+
+                if (magnet) {
+                    const res = await fetch(`${API_URL}/media-info?magnet=${encodeURIComponent(magnet)}&season=${season || ''}&episode=${episode || ''}`);
+                    const data = await res.json();
+                    
+                    if (data.audioTracks && data.audioTracks.length > 1) {
+                        console.log('[Player] Multi-audio detected:', data.audioTracks);
+                        setAudioTracks(data.audioTracks);
+                    }
+                }
+            } catch (e) {
+                console.warn('[Player] Failed to load media info:', e);
+            }
+        };
+        loadMediaInfo();
+    }, [streamUrl, API_URL]);
+
+    // Handle Audio Switch
+    const switchAudio = (index) => {
+        if (index === selectedAudioIndex) return;
+        
+        console.log(`[Player] Switching to Audio Track #${index}`);
+        setSelectedAudioIndex(index);
+        setShowAudioMenu(false);
+        setIsLoading(true);
+
+        // Save current time
+        const timeToSeek = videoRef.current ? videoRef.current.currentTime : 0;
+
+        // Construct new URL with audioIndex and startTime
+        const urlObj = new URL(streamUrl);
+        urlObj.searchParams.set('audioIndex', index);
+        urlObj.searchParams.set('startTime', Math.floor(timeToSeek)); // Pass start time to server for faster seek
+        
+        const newUrl = urlObj.toString();
+        setCurrentStreamUrl(newUrl);
+        
+        // Force reload logic handled in useEffect below
+    };
 
     const handleLoadedMetadata = () => {
         if (imdbId) {
@@ -337,7 +392,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
     useEffect(() => {
         const init = async () => {
             setIsLoading(true);
-            let url = streamUrl;
+            let url = currentStreamUrl;
             if (!url) return;
 
             if (Hls.isSupported() && url.includes('.m3u8')) {
@@ -375,7 +430,10 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
                 console.log('[Subtitles] 📝 İlk mevcut altyazı etkinleştirildi');
             }
 
-            setTimeout(() => switchSubtitle(autoSubIndex), 1000);
+            // Only switch if this is the initial load (prevent override on audio switch)
+            if (selectedAudioIndex === 0) {
+                 setTimeout(() => switchSubtitle(autoSubIndex), 1000);
+            }
         } else {
             console.log('[Subtitles] ⚠️ Altyazı bulunamadı');
         }
@@ -388,7 +446,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
                 videoRef.current.load(); // Forces connection close
             }
         };
-    }, [streamUrl, subtitles]);
+    }, [currentStreamUrl, subtitles]);
 
     return (
         <div ref={containerRef} style={styles.container} onMouseMove={handleInteraction} onClick={() => setShowSubMenu(false)}>
@@ -531,6 +589,33 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
                                 </div>
 
                                 <div style={styles.rightControls}>
+                                    {/* AUDIO MENU */}
+                                    {audioTracks.length > 1 && (
+                                        <div style={{ position: 'relative' }}>
+                                            <button className="glass-btn" style={{ ...styles.button, color: '#fff' }} onClick={() => setShowAudioMenu(!showAudioMenu)}>
+                                                <i className="fas fa-headphones" style={{ fontSize: '26px' }} />
+                                            </button>
+                                            <AnimatePresence>
+                                                {showAudioMenu && (
+                                                    <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} style={styles.menu}>
+                                                        <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '8px', fontSize: '12px', color: '#888' }}>
+                                                            Ses Dili
+                                                        </div>
+                                                        {audioTracks.map((track, i) => (
+                                                            <button key={i} style={{ ...styles.menuItem, ...(selectedAudioIndex === i ? styles.activeItem : {}) }} onClick={() => switchAudio(i)}>
+                                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    {track.lang !== 'und' && <img src={`https://flagsapi.com/${track.lang.toUpperCase() === 'ENG' ? 'US' : (track.lang.toUpperCase() === 'TUR' || track.lang.toUpperCase() === 'TR' ? 'TR' : 'UN')}/flat/16.png`} alt="" onError={(e) => e.target.style.display = 'none'} />}
+                                                                    {track.title || `Track ${i + 1}`} ({track.codec})
+                                                                </span>
+                                                                {selectedAudioIndex === i && <i className="fas fa-check" style={{ color: '#E50914' }} />}
+                                                            </button>
+                                                        ))}
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    )}
+
                                     <div style={{ position: 'relative' }}>
                                         <button className="glass-btn" style={{ ...styles.button, color: activeSubIndex !== -1 ? '#E50914' : '#fff' }} onClick={() => setShowSubMenu(!showSubMenu)}>
                                             <i className="fas fa-closed-captioning" style={{ fontSize: '26px' }} />

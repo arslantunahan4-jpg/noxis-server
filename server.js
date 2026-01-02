@@ -278,7 +278,7 @@ app.get('/stream', async (req, res) => {
         ];
 
         // Seek Support (Query Param)
-        const { startTime } = req.query;
+        const { startTime, audioIndex } = req.query;
         if (startTime) {
             console.log(`[Stream] Seeking to: ${startTime}s`);
             inputArgs.push(`-ss ${startTime}`);
@@ -302,10 +302,30 @@ app.get('/stream', async (req, res) => {
                 });
             });
 
+            // --- AUDIO STREAM SELECTION ---
+            // İstenen ses kanalını veya varsayılanı (0) seç
+            const targetAudioIndex = audioIndex ? parseInt(audioIndex) : 0;
+            
+            // Tüm ses kanallarını bul
+            const audioStreams = metadata.streams.filter(s => s.codec_type === 'audio');
+            
+            // Eğer geçerli bir ses kanalı varsa map et
+            if (audioStreams[targetAudioIndex]) {
+                // FFmpeg stream indexleri (video + audio karışık olabilir)
+                // metadata.streams içindeki gerçek index'i bulmamız lazım
+                const realIndex = audioStreams[targetAudioIndex].index;
+                console.log(`[Stream] Selecting Audio Track #${targetAudioIndex} (Stream Index: ${realIndex})`);
+                
+                // Video her zaman 0:v:0, Ses seçilen index
+                outputArgs.unshift(`-map 0:v:0`, `-map 0:${realIndex}`);
+            } else {
+                console.warn(`[Stream] Requested audio index ${targetAudioIndex} not found, using default map.`);
+            }
+
             console.log('[Stream] Probe Data:', JSON.stringify(metadata.streams.map(s => ({ type: s.codec_type, codec: s.codec_name, pix_fmt: s.pix_fmt })), null, 2));
 
             const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-            const audioStream = metadata.streams.find(s => s.codec_type === 'audio');
+            const targetAudioStream = audioStreams[targetAudioIndex] || audioStreams[0];
 
             // Browser Compatibility Check: Only copy H.264 8-bit (yuv420p)
             if (videoStream && videoStream.codec_name === 'h264' && videoStream.pix_fmt === 'yuv420p') {
@@ -316,11 +336,11 @@ app.get('/stream', async (req, res) => {
                 outputArgs.push('-crf 23', '-profile:v main', '-level 4.0', '-pix_fmt yuv420p');
             }
 
-            if (audioStream && (audioStream.codec_name === 'aac' || audioStream.codec_name === 'mp3')) {
-                console.log(`[Stream] Audio Codec: ${audioStream.codec_name} (Copy)`);
+            if (targetAudioStream && (targetAudioStream.codec_name === 'aac' || targetAudioStream.codec_name === 'mp3')) {
+                console.log(`[Stream] Audio Codec: ${targetAudioStream.codec_name} (Copy)`);
                 aCodec = 'copy';
             } else {
-                console.log(`[Stream] Audio Codec: ${audioStream?.codec_name} (Transcode)`);
+                console.log(`[Stream] Audio Codec: ${targetAudioStream?.codec_name} (Transcode)`);
                 outputArgs.push('-ac 2', '-b:a 128k');
             }
 
@@ -329,8 +349,17 @@ app.get('/stream', async (req, res) => {
             outputArgs.push('-crf 23', '-pix_fmt yuv420p', '-ac 2', '-b:a 128k');
         }
 
-        outputArgs.unshift(`-c:v ${vCodec}`);
-        outputArgs.push(`-c:a ${aCodec}`);
+        // Eğer map argümanları eklenmediyse (yukarıdaki try bloğu hata verdiyse) default ekle
+        if (!outputArgs.some(arg => arg.includes('-map'))) {
+             outputArgs.push(`-c:v ${vCodec}`);
+             outputArgs.push(`-c:a ${aCodec}`);
+        } else {
+             // Map varsa codec'leri belirle (fakat -c:v yerine map'e göre codec ataması gerekebilir, basitleştirmek için genel atıyoruz)
+             // FFmpeg'de map kullanınca codecleri stream specifier ile belirtmek daha güvenli: -c:v libx264 -c:a aac
+             // Ancak basit olması için global codec flaglerini sona ekliyoruz.
+             outputArgs.push(`-c:v ${vCodec}`);
+             outputArgs.push(`-c:a ${aCodec}`);
+        }
 
         console.log('[Stream] FFmpeg Output Args:', outputArgs.join(' '));
 
@@ -359,6 +388,52 @@ app.get('/stream', async (req, res) => {
     } catch (e) {
         console.error("[Stream Fatal Error]", e.message);
         if (!res.headersSent) res.status(500).send("Internal Server Error");
+    }
+});
+
+// --- MEDIA INFO ENDPOINT (Audio/Subtitle Tracks) ---
+app.get('/media-info', async (req, res) => {
+    const { magnet, index, season, episode } = req.query;
+    if (!magnet) return res.status(400).json({ error: "Magnet required" });
+
+    try {
+        const fileData = await debrid.resolveMagnet(
+            magnet,
+            index ? parseInt(index) : undefined,
+            season,
+            episode
+        );
+
+        if (!fileData) return res.status(404).json({ error: "File not found" });
+
+        // FFprobe to get metadata
+        ffmpeg.ffprobe(fileData.url, (err, metadata) => {
+            if (err) {
+                console.error('[MediaInfo] Probe Error:', err.message);
+                return res.status(500).json({ error: "Probe failed" });
+            }
+
+            // Extract Audio Streams
+            const audioTracks = metadata.streams
+                .filter(s => s.codec_type === 'audio')
+                .map((s, i) => ({
+                    index: i, // Bizim kullanacağımız mantıksal index (0, 1, 2...)
+                    realIndex: s.index, // FFmpeg stream index
+                    codec: s.codec_name,
+                    channels: s.channels,
+                    lang: s.tags?.language || 'und',
+                    title: s.tags?.title || s.tags?.handler_name || `Audio Track ${i + 1}`
+                }));
+
+            res.json({
+                filename: fileData.filename,
+                audioTracks: audioTracks
+            });
+        });
+
+    } catch (e) {
+        console.error("[MediaInfo Error]", e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 
