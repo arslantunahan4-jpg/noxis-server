@@ -93,6 +93,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
     }, [movie, onPlay]);
 
     const handlePartyWatch = async (seasonNum = null, episodeNum = null) => {
+        console.log('[handlePartyWatch] Çağrıldı - seasonNum:', seasonNum, 'episodeNum:', episodeNum);
         setMagnetLoading(true);
         setMagnetError(null);
 
@@ -110,8 +111,10 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
             setCurrentImdbId(imdbId);
 
             // Determine Season/Episode
-            const s = seasonNum || selectedTorrentSeason || selectedSeason || 1;
-            const e = episodeNum || selectedTorrentEpisode || 1;
+            const s = seasonNum !== null && seasonNum !== undefined ? seasonNum : (selectedTorrentSeason || selectedSeason || 1);
+            const e = episodeNum !== null && episodeNum !== undefined ? episodeNum : (selectedTorrentEpisode || 1);
+            
+            console.log('[handlePartyWatch] Final değerler - s:', s, 'e:', e);
 
             if (isSeries) {
                 setSelectedTorrentSeason(s);
@@ -128,7 +131,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
             }
 
             if (results.length === 1) {
-                await handleSelectTorrent(results[0]);
+                await handleSelectTorrent(results[0], s, e);
             } else {
                 setTorrentOptions(results);
                 setShowTorrentPicker(true);
@@ -142,10 +145,14 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
         }
     };
 
-    const handleSelectTorrent = async (torrent) => {
+    const handleSelectTorrent = async (torrent, seasonOverride = null, episodeOverride = null) => {
         setShowTorrentPicker(false);
         setMagnetLoading(true);
         setMagnetError(null);
+
+        // Parametre olarak gelen değeri kullan, yoksa state'ten al
+        const finalSeason = seasonOverride !== null ? seasonOverride : selectedTorrentSeason;
+        const finalEpisode = episodeOverride !== null ? episodeOverride : selectedTorrentEpisode;
 
         try {
             const params = new URLSearchParams({
@@ -154,8 +161,8 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
             });
 
             if (isSeries) {
-                params.append('season', selectedTorrentSeason);
-                params.append('episode', selectedTorrentEpisode);
+                params.append('season', finalSeason);
+                params.append('episode', finalEpisode);
             }
 
             // VPS'e İstek At (Streaming için)
@@ -166,8 +173,8 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
             try {
                 const subParams = new URLSearchParams({
                     imdb: currentImdbId,
-                    season: isSeries ? selectedTorrentSeason : '',
-                    episode: isSeries ? selectedTorrentEpisode : ''
+                    season: isSeries ? finalSeason : '',
+                    episode: isSeries ? finalEpisode : ''
                 });
                 console.log('[Subtitles] Altyazı aranıyor...', currentImdbId);
                 const subRes = await fetch(`${SERVER_URL}/subtitles?${subParams}`);
@@ -299,11 +306,12 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                     >
                         <button
                             tabIndex="0"
-                            onClick={handlePlayMovie}
+                            onClick={() => handlePartyWatch()}
                             className="focusable detail-play-btn"
+                            disabled={magnetLoading}
                         >
-                            <i className="fas fa-play"></i>
-                            <span>Oynat</span>
+                            <i className={`fas ${magnetLoading ? 'fa-spinner fa-spin' : 'fa-play'}`}></i>
+                            <span>{magnetLoading ? 'Aranıyor...' : 'Oynat'}</span>
                         </button>
                         {trailer && (
                             <button
@@ -315,17 +323,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                 <span>Fragman</span>
                             </button>
                         )}
-
-                        <button
-                            tabIndex="0"
-                            onClick={() => handlePartyWatch()}
-                            className="focusable glass-button"
-                            style={{ background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.2), rgba(255, 193, 7, 0.2))', borderColor: 'rgba(255, 165, 0, 0.5)', color: '#ffb347', gap: '8px' }}
-                            disabled={magnetLoading}
-                        >
-                            <i className={`fas ${magnetLoading ? 'fa-spinner fa-spin' : 'fa-magnet'}`}></i>
-                            <span>{magnetLoading ? 'Aranıyor...' : 'Torrent İzle'}</span>
-                        </button>
 
                         {magnetError && <span style={{ color: '#ff6b6b', fontSize: '13px', marginLeft: '10px', alignSelf: 'center' }}>{magnetError}</span>}
                     </motion.div>
@@ -375,9 +372,9 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                 </div>
                                             )}
                                             <div style={{ aspectRatio: '16/9', position: 'relative' }}>
-                                                {/* Main Play Action (Focusable) */}
+                                                {/* Main Play Action - Torrent (Focusable) */}
                                                 <button
-                                                    onClick={() => handlePlayEpisode(selectedSeason, ep.episode_number)}
+                                                    onClick={() => handlePartyWatch(selectedSeason, ep.episode_number)}
                                                     className="focusable"
                                                     style={{
                                                         position: 'absolute', inset: 0, border: 'none', padding: 0,
@@ -392,7 +389,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                         position: 'absolute', inset: 0,
                                                         background: 'rgba(0,0,0,0.3)',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        opacity: 0.8 // Always visible for TV clarity
+                                                        opacity: 0.8
                                                     }}>
                                                         <div style={{
                                                             width: '40px', height: '40px',
@@ -423,32 +420,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                 }}>
                                                     {ep.episode_number}. Bölüm
                                                 </div>
-
-                                                {/* Independent Torrent Button (Focusable) */}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePartyWatch(selectedSeason, ep.episode_number);
-                                                    }}
-                                                    className="focusable"
-                                                    title="Torrent / 4K İzle"
-                                                    style={{
-                                                        position: 'absolute',
-                                                        bottom: '8px',
-                                                        right: '8px',
-                                                        width: '36px', height: '36px',
-                                                        borderRadius: '50%',
-                                                        background: 'linear-gradient(135deg, rgba(255, 107, 0, 0.9), rgba(255, 193, 7, 0.9))',
-                                                        backdropFilter: 'blur(4px)',
-                                                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                                                        cursor: 'pointer',
-                                                        zIndex: 3 // Higher than play button
-                                                    }}
-                                                >
-                                                    <i className="fas fa-magnet" style={{ color: 'white', fontSize: '14px' }}></i>
-                                                </button>
                                             </div>
                                             <div style={{ padding: '14px', position: 'relative', zIndex: 2 }}>
                                                 <div style={{
