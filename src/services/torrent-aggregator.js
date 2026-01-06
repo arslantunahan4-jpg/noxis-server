@@ -15,7 +15,7 @@ const CONFIG = {
     APIBAY_API: 'https://apibay.org/q.php',
     USE_PROXY: true, // Force use of backend proxy for APIs
     CACHE_TTL: 5 * 60 * 1000, // 5 minutes
-    MIN_SEEDS: 5, // Minimum seeds for quality filter
+    MIN_SEEDS: 1, // Minimum seeds for quality filter
     REQUEST_TIMEOUT: 15000,
     TRACKERS: [
         'udp://tracker.opentrackr.org:1337/announce',
@@ -306,16 +306,74 @@ export async function searchTorrents(imdbId, type = 'movie', season = null, epis
         return true;
     });
 
-    // Sort by seeds (highest first), then by quality preference
-    const qualityRank = { '4K': 4, '2160P': 4, '1080P': 3, '720P': 2, 'Unknown': 1 };
+    // === SMART SORTING ALGORITHM ===
+    // Priority Order:
+    // 1. MP4 format (direct play, no transcoding)
+    // 2. H.264/x264 codec (universal compatibility)
+    // 3. High seeds
+    // 4. 1080p quality preferred
+    // 5. For movies: YTS source priority
+    
     allTorrents.sort((a, b) => {
-        // First by seeds
+        const titleA = (a.title || '').toUpperCase();
+        const titleB = (b.title || '').toUpperCase();
+        const qualityA = (a.quality || '').toUpperCase();
+        const qualityB = (b.quality || '').toUpperCase();
+        
+        // --- 1. MP4 Priority (Highest) ---
+        const isMP4_A = qualityA.includes('MP4') || titleA.includes('.MP4');
+        const isMP4_B = qualityB.includes('MP4') || titleB.includes('.MP4');
+        if (isMP4_A && !isMP4_B) return -1;
+        if (!isMP4_A && isMP4_B) return 1;
+        
+        // --- 2. H.264/x264 Priority (Second) ---
+        const isH264_A = titleA.includes('X264') || titleA.includes('H264') || titleA.includes('H.264') || titleA.includes('AVC');
+        const isH264_B = titleB.includes('X264') || titleB.includes('H264') || titleB.includes('H.264') || titleB.includes('AVC');
+        if (isH264_A && !isH264_B) return -1;
+        if (!isH264_A && isH264_B) return 1;
+        
+        // --- 3. For Movies: YTS Priority ---
+        if (!isSeries) {
+            const isYTS_A = a.source === 'YTS';
+            const isYTS_B = b.source === 'YTS';
+            if (isYTS_A && !isYTS_B) return -1;
+            if (!isYTS_A && isYTS_B) return 1;
+        }
+        
+        // --- 4. Quality Priority (1080p > 720p > 4K > others) ---
+        // 4K requires more bandwidth, so 1080p is preferred for compatibility
+        const getQualityScore = (quality) => {
+            if (quality.includes('1080')) return 4;
+            if (quality.includes('720')) return 3;
+            if (quality.includes('4K') || quality.includes('2160')) return 2;
+            if (quality.includes('480') || quality.includes('360')) return 1;
+            return 0;
+        };
+        const qualityScoreA = getQualityScore(qualityA);
+        const qualityScoreB = getQualityScore(qualityB);
+        if (qualityScoreA !== qualityScoreB) return qualityScoreB - qualityScoreA;
+        
+        // --- 5. Seeds (Higher is better) ---
         if (b.seeds !== a.seeds) return b.seeds - a.seeds;
-        // Then by quality
-        const rankA = qualityRank[a.quality.toUpperCase()] || 1;
-        const rankB = qualityRank[b.quality.toUpperCase()] || 1;
-        return rankB - rankA;
+        
+        // --- 6. Avoid x265/HEVC (less compatible) ---
+        const isHEVC_A = titleA.includes('X265') || titleA.includes('HEVC') || titleA.includes('H265');
+        const isHEVC_B = titleB.includes('X265') || titleB.includes('HEVC') || titleB.includes('H265');
+        if (isHEVC_A && !isHEVC_B) return 1;  // Push HEVC down
+        if (!isHEVC_A && isHEVC_B) return -1;
+        
+        return 0;
     });
+
+    console.log(`[Aggregator] Smart sorted ${allTorrents.length} torrents`);
+    
+    // Log top 3 for debugging
+    if (allTorrents.length > 0) {
+        console.log('[Aggregator] Top picks:');
+        allTorrents.slice(0, 3).forEach((t, i) => {
+            console.log(`  ${i + 1}. ${t.quality} | ${t.seeds} seeds | ${t.source} | ${t.title?.substring(0, 50)}...`);
+        });
+    }
 
     // Cache results
     if (allTorrents.length > 0) {
