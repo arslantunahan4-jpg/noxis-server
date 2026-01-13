@@ -63,11 +63,21 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
 
     useEffect(() => {
         const type = isSeries ? 'tv' : 'movie';
-        fetchTMDB(`/${type}/${movie.id}?append_to_response=credits,similar,videos`).then(d => {
+        // Add include_video_language to get English fallbacks
+        fetchTMDB(`/${type}/${movie.id}?append_to_response=credits,similar,videos&include_video_language=tr,en`).then(d => {
             setDetails(d);
             if (d?.similar?.results) setSimilar(d.similar.results.slice(0, 12));
             if (d?.videos?.results) {
-                const t = d.videos.results.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+                // Filter for YouTube only
+                const videos = d.videos.results.filter(v => v.site === 'YouTube');
+
+                // Prioritize: TR Trailer > EN Trailer > TR Teaser > EN Teaser
+                const t = videos.find(v => v.iso_639_1 === 'tr' && v.type === 'Trailer') ||
+                          videos.find(v => v.iso_639_1 === 'en' && v.type === 'Trailer') ||
+                          videos.find(v => v.iso_639_1 === 'tr' && v.type === 'Teaser') ||
+                          videos.find(v => v.iso_639_1 === 'en' && v.type === 'Teaser') ||
+                          videos[0];
+
                 if (t) setTrailer(t.key);
             }
             if (isSeries && d) setSeasons(Array.from({ length: d.number_of_seasons }, (_, i) => i + 1));
