@@ -730,6 +730,51 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         try {
             console.log(`[Player] Scraping ${site} for: ${movieTitle} (${slug})`);
 
+            if (site === 'vidmody') {
+                console.log('[Player] Probing Vidmody...');
+                let imdb = movie.imdb_id || movie.external_ids?.imdb_id;
+
+                if (!imdb) {
+                     const type = isSeries ? 'tv' : 'movie';
+                     try {
+                         const d = await fetchTMDB(`/${type}/${movie.id}/external_ids`);
+                         imdb = d?.imdb_id;
+                     } catch(e) {}
+                }
+
+                if (!imdb) { setLoadingSource(null); return null; }
+
+                const candidates = [];
+                if (isSeries) {
+                    const s = initialSeason;
+                    const e = initialEpisode.toString().padStart(2, '0');
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_1080p/index-v1-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_720p/index-v1-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_1080p/index-a1.gif`);
+                } else {
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_1080p/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main1080crdual/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_720p/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_1080p/index-v1-a1.gif`);
+                }
+
+                for (const url of candidates) {
+                    try {
+                        const res = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
+                        const d = await res.json();
+                        if (d.success) {
+                            console.log('[Player] ✅ Vidmody found:', url);
+                            setScrapedUrls(prev => ({ ...prev, [site]: url }));
+                            setLoadingSource(null);
+                            return url;
+                        }
+                    } catch {}
+                }
+                console.log('[Player] ❌ Vidmody not found');
+                setLoadingSource(null);
+                return null;
+            }
+
             if (site === 'hdfilmizle' && isNativePlatform()) {
                 console.log(`[Player] Using native HTTP for scraping`);
                 const result = await scrapeHdfilmizle(
@@ -790,6 +835,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         { id: 'filmizlejet', name: '🎬 Filmizlejet' },
         { id: 'yabancidizibox', name: '🇹🇷 TR Dublaj' },
         { id: 'hdfilmizle', name: '🇹🇷 TR Altyazı' },
+        { id: 'vidmody', name: '⚡ Vidmody (Direct)' },
         { id: 'multiembed', name: 'MultiEmbed' },
         { id: 'vidsrc.cc', name: 'VidSrc CC' },
         { id: 'vidsrc.me', name: 'VidSrc ME' }
@@ -880,6 +926,22 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
     useEffect(() => {
         if (showControls) document.getElementById('player-back')?.focus();
     }, [showControls]);
+
+    // Special render for Vidmody (Native HLS Player)
+    if (source === 'vidmody' && scrapedUrls['vidmody']) {
+        return (
+            <GlassPlayer
+                streamUrl={scrapedUrls['vidmody']}
+                movieTitle={movie.title || movie.name}
+                onClose={onClose}
+                poster={movie.poster_path}
+                backdrop={movie.backdrop_path}
+                season={isSeries ? initialSeason : null}
+                episode={isSeries ? initialEpisode : null}
+                imdbId={movie.imdb_id || movie.external_ids?.imdb_id}
+            />
+        );
+    }
 
     return (
         <div className="player-container">
