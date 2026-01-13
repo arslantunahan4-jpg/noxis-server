@@ -102,19 +102,8 @@ export const authApi = {
 };
 
 // --- API UTILS ---
-// TMDB API Key
-const TMDB_API_KEY = 'db8ab9e44da4236102fadf5d58a08a4b';
-
-export const fetchTMDB = async (endpoint) => {
-    const symbol = endpoint.includes('?') ? '&' : '?';
-    try {
-        const res = await fetch(`https://api.themoviedb.org/3${endpoint}${symbol}api_key=${TMDB_API_KEY}&language=tr-TR`);
-        return res.ok ? await res.json() : null;
-    } catch (e) {
-        console.error('[TMDB Error]', e);
-        return null;
-    }
-};
+import { fetchTMDB, CATEGORY_DEFINITIONS } from '../services/tmdb';
+export { fetchTMDB, CATEGORY_DEFINITIONS };
 
 // --- DATA UTILS (Hybrid: Local + Cloud) ---
 export const getStorageData = (key) => { try { return JSON.parse(localStorage.getItem(key) || (key === CONTINUE_KEY ? '[]' : '{}')); } catch { return key === CONTINUE_KEY ? [] : {}; } };
