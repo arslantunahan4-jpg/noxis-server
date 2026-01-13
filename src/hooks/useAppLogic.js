@@ -102,8 +102,8 @@ export const authApi = {
 };
 
 // --- API UTILS ---
-import { fetchTMDB, CATEGORY_DEFINITIONS } from '../services/tmdb';
-export { fetchTMDB, CATEGORY_DEFINITIONS };
+import { fetchTMDB, CATEGORY_DEFINITIONS, MOVIE_CATEGORY_DEFINITIONS, TV_CATEGORY_DEFINITIONS } from '../services/tmdb';
+export { fetchTMDB, CATEGORY_DEFINITIONS, MOVIE_CATEGORY_DEFINITIONS, TV_CATEGORY_DEFINITIONS };
 
 // --- DATA UTILS (Hybrid: Local + Cloud) ---
 export const getStorageData = (key) => { try { return JSON.parse(localStorage.getItem(key) || (key === CONTINUE_KEY ? '[]' : '{}')); } catch { return key === CONTINUE_KEY ? [] : {}; } };
