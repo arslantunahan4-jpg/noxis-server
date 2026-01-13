@@ -12,7 +12,7 @@ const DetailPage = () => {
     useEffect(() => {
         const loadDetail = async () => {
             setLoading(true);
-            const endpoint = `/${type}/${id}?append_to_response=credits,similar,videos,external_ids`;
+            const endpoint = `/${type}/${id}?append_to_response=credits,similar,videos,external_ids&include_video_language=tr,en`;
             const data = await fetchTMDB(endpoint);
             if (data) {
                 // Ensure media_type is set for consistency

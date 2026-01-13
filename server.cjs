@@ -27,7 +27,7 @@ const CONFIG = {
     REAL_DEBRID_TOKEN: process.env.REAL_DEBRID_TOKEN || '',
     FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
     FFPROBE_PATH: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
-    ALLOWED_PROXY_DOMAINS: ['yts.mx', 'yts.lt', 'eztvx.to', '1337x.to', 'torrentio.strem.fun'] // WHITELIST
+    ALLOWED_PROXY_DOMAINS: ['yts.mx', 'yts.lt', 'eztvx.to', '1337x.to', 'torrentio.strem.fun', 'vidmody.com'] // WHITELIST
 };
 
 // Set FFmpeg pathsfmpeg.setFfmpegPath(CONFIG.FFMPEG_PATH);
@@ -589,6 +589,22 @@ app.get('/api/proxy', async (req, res) => {
         res.json(response.data);
     } catch (e) {
         res.status(502).json({ error: "Proxy Error" });
+    }
+});
+
+// --- PROBE ENDPOINT (HEAD REQUEST) ---
+app.get('/api/probe', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "URL required" });
+    try {
+        await axios.head(url, {
+             timeout: 5000,
+             headers: { 'User-Agent': 'Mozilla/5.0' },
+             validateStatus: status => status === 200 // Only 200 is OK
+        });
+        res.status(200).json({ success: true });
+    } catch (e) {
+        res.status(404).json({ success: false });
     }
 });
 

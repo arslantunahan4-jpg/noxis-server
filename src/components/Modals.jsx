@@ -63,11 +63,21 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
 
     useEffect(() => {
         const type = isSeries ? 'tv' : 'movie';
-        fetchTMDB(`/${type}/${movie.id}?append_to_response=credits,similar,videos`).then(d => {
+        // Add include_video_language to get English fallbacks
+        fetchTMDB(`/${type}/${movie.id}?append_to_response=credits,similar,videos&include_video_language=tr,en`).then(d => {
             setDetails(d);
             if (d?.similar?.results) setSimilar(d.similar.results.slice(0, 12));
             if (d?.videos?.results) {
-                const t = d.videos.results.find(v => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'));
+                // Filter for YouTube only
+                const videos = d.videos.results.filter(v => v.site === 'YouTube');
+
+                // Prioritize: TR Trailer > EN Trailer > TR Teaser > EN Teaser
+                const t = videos.find(v => v.iso_639_1 === 'tr' && v.type === 'Trailer') ||
+                          videos.find(v => v.iso_639_1 === 'en' && v.type === 'Trailer') ||
+                          videos.find(v => v.iso_639_1 === 'tr' && v.type === 'Teaser') ||
+                          videos.find(v => v.iso_639_1 === 'en' && v.type === 'Teaser') ||
+                          videos[0];
+
                 if (t) setTrailer(t.key);
             }
             if (isSeries && d) setSeasons(Array.from({ length: d.number_of_seasons }, (_, i) => i + 1));
@@ -313,6 +323,14 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                             <i className={`fas ${magnetLoading ? 'fa-spinner fa-spin' : 'fa-play'}`}></i>
                             <span>{magnetLoading ? 'Aranıyor...' : 'Oynat'}</span>
                         </button>
+                        <button
+                            tabIndex="0"
+                            onClick={() => onPlay(movie, selectedSeason || 1, 1)}
+                            className="focusable glass-button"
+                        >
+                            <i className="fas fa-globe"></i>
+                            <span>Kaynaklar</span>
+                        </button>
                         {trailer && (
                             <button
                                 tabIndex="0"
@@ -441,6 +459,30 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                 }}>
                                                     {ep.overview || "Özet bulunmuyor."}
                                                 </p>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onPlay(movie, selectedSeason, ep.episode_number);
+                                                    }}
+                                                    className="focusable"
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        padding: '6px 12px',
+                                                        background: 'rgba(255, 255, 255, 0.1)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                        borderRadius: '6px',
+                                                        color: 'white',
+                                                        fontSize: '12px',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <i className="fas fa-globe" style={{ fontSize: '10px' }}></i>
+                                                    Web'den İzle
+                                                </button>
                                             </div>
 
                                         </div>
@@ -720,6 +762,51 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         try {
             console.log(`[Player] Scraping ${site} for: ${movieTitle} (${slug})`);
 
+            if (site === 'vidmody') {
+                console.log('[Player] Probing Vidmody...');
+                let imdb = movie.imdb_id || movie.external_ids?.imdb_id;
+
+                if (!imdb) {
+                     const type = isSeries ? 'tv' : 'movie';
+                     try {
+                         const d = await fetchTMDB(`/${type}/${movie.id}/external_ids`);
+                         imdb = d?.imdb_id;
+                     } catch(e) {}
+                }
+
+                if (!imdb) { setLoadingSource(null); return null; }
+
+                const candidates = [];
+                if (isSeries) {
+                    const s = initialSeason;
+                    const e = initialEpisode.toString().padStart(2, '0');
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_1080p/index-v1-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_720p/index-v1-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/s${s}/e${e}/main_1080p/index-a1.gif`);
+                } else {
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_1080p/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main1080crdual/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_720p/index-a1.gif`);
+                    candidates.push(`https://vidmody.com/mm/${imdb}/main_1080p/index-v1-a1.gif`);
+                }
+
+                for (const url of candidates) {
+                    try {
+                        const res = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
+                        const d = await res.json();
+                        if (d.success) {
+                            console.log('[Player] ✅ Vidmody found:', url);
+                            setScrapedUrls(prev => ({ ...prev, [site]: url }));
+                            setLoadingSource(null);
+                            return url;
+                        }
+                    } catch {}
+                }
+                console.log('[Player] ❌ Vidmody not found');
+                setLoadingSource(null);
+                return null;
+            }
+
             if (site === 'hdfilmizle' && isNativePlatform()) {
                 console.log(`[Player] Using native HTTP for scraping`);
                 const result = await scrapeHdfilmizle(
@@ -780,6 +867,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         { id: 'filmizlejet', name: '🎬 Filmizlejet' },
         { id: 'yabancidizibox', name: '🇹🇷 TR Dublaj' },
         { id: 'hdfilmizle', name: '🇹🇷 TR Altyazı' },
+        { id: 'vidmody', name: '⚡ Vidmody (Direct)' },
         { id: 'multiembed', name: 'MultiEmbed' },
         { id: 'vidsrc.cc', name: 'VidSrc CC' },
         { id: 'vidsrc.me', name: 'VidSrc ME' }
@@ -870,6 +958,22 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
     useEffect(() => {
         if (showControls) document.getElementById('player-back')?.focus();
     }, [showControls]);
+
+    // Special render for Vidmody (Native HLS Player)
+    if (source === 'vidmody' && scrapedUrls['vidmody']) {
+        return (
+            <GlassPlayer
+                streamUrl={scrapedUrls['vidmody']}
+                movieTitle={movie.title || movie.name}
+                onClose={onClose}
+                poster={movie.poster_path}
+                backdrop={movie.backdrop_path}
+                season={isSeries ? initialSeason : null}
+                episode={isSeries ? initialEpisode : null}
+                imdbId={movie.imdb_id || movie.external_ids?.imdb_id}
+            />
+        );
+    }
 
     return (
         <div className="player-container">

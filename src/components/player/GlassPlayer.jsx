@@ -395,7 +395,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, im
             let url = currentStreamUrl;
             if (!url) return;
 
-            if (Hls.isSupported() && url.includes('.m3u8')) {
+            // Support HLS via .m3u8 OR .gif (Vidmody HLS disguise)
+            if (Hls.isSupported() && (url.includes('.m3u8') || url.includes('.gif'))) {
                 const hls = new Hls();
                 hls.loadSource(url);
                 hls.attachMedia(videoRef.current);
