@@ -323,6 +323,14 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                             <i className={`fas ${magnetLoading ? 'fa-spinner fa-spin' : 'fa-play'}`}></i>
                             <span>{magnetLoading ? 'Aranıyor...' : 'Oynat'}</span>
                         </button>
+                        <button
+                            tabIndex="0"
+                            onClick={() => onPlay(movie, selectedSeason || 1, 1)}
+                            className="focusable glass-button"
+                        >
+                            <i className="fas fa-globe"></i>
+                            <span>Kaynaklar</span>
+                        </button>
                         {trailer && (
                             <button
                                 tabIndex="0"
@@ -451,6 +459,30 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail }) => {
                                                 }}>
                                                     {ep.overview || "Özet bulunmuyor."}
                                                 </p>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onPlay(movie, selectedSeason, ep.episode_number);
+                                                    }}
+                                                    className="focusable"
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        padding: '6px 12px',
+                                                        background: 'rgba(255, 255, 255, 0.1)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                        borderRadius: '6px',
+                                                        color: 'white',
+                                                        fontSize: '12px',
+                                                        fontWeight: '600',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <i className="fas fa-globe" style={{ fontSize: '10px' }}></i>
+                                                    Web'den İzle
+                                                </button>
                                             </div>
 
                                         </div>
