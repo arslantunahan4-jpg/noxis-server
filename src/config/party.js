@@ -4,10 +4,8 @@ import { getApiBaseUrl } from '../utils/apiBaseUrl';
 export const API_URL = getApiBaseUrl();
 
 export const SOCKET_CONFIG = (() => {
-  const isDev = import.meta.env.DEV;
-  
-  // Use explicit URL in dev, but same-origin relative path in prod (to leverage Nginx proxy)
-  const url = isDev ? API_URL : undefined; 
+  // Always connect to the backend API server URL (e.g. api.noxis.tech)
+  const url = API_URL; 
 
   return {
     url,

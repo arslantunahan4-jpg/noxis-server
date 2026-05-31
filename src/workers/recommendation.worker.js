@@ -42,7 +42,7 @@ self.onmessage = async (e) => {
         const detailedAnalysisQueue = historyItems.slice(0, 5);
         const details = await Promise.all(
             detailedAnalysisQueue.map(item => 
-                fetchTMDB(`/${item.season ? 'tv' : 'movie'}/${item.id}`, apiUrl)
+                fetchTMDB(`/${(item.media_type === 'tv' || item.season) ? 'tv' : 'movie'}/${item.id}`, apiUrl)
             )
         );
 

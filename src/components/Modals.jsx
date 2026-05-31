@@ -1678,7 +1678,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
             if (movie.isLocal) {
                 setLoading(true);
                 try {
-                    const infoRes = await fetch(`https://noxis.tech/local-video/${movie.id}/info.json`);
+                    const infoRes = await fetch(`https://noxis.tech/local-video/${movie.id}/video.info.json`);
                     if (infoRes.ok && !cancelled) {
                         const infoData = await infoRes.json();
                         if (infoData.subtitles) {
