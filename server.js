@@ -1278,13 +1278,15 @@ app.get('/api/video-proxy', async (req, res) => {
         let proxyAgent = undefined;
 
         if (isStreamimdb) {
-            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-            requestUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
-            if (customReferer) {
-                requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
+            if (USE_TOR && torAgent) {
+                proxyAgent = torAgent;
+            } else {
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                requestUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
+                if (customReferer) {
+                    requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
+                }
             }
-        } else {
-            proxyAgent = torAgent;
         }
 
         const response = await axios({
@@ -2388,15 +2390,23 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         const qualityBase = getStreamimdbQualityLabel(playlistUrl, index);
         
         try {
-            // Master playlist'i sunucuda çek
-            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-            const requestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
-                (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+            let requestUrl = playlistUrl;
+            let proxyAgent = undefined;
+
+            if (USE_TOR && torAgent) {
+                proxyAgent = torAgent;
+            } else {
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                requestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
+                    (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+            }
 
             const response = await axios.get(requestUrl, {
                 headers: getStreamimdbPlaylistHeaders(),
                 timeout: 8000,
                 responseType: 'text',
+                httpAgent: proxyAgent,
+                httpsAgent: proxyAgent,
                 validateStatus: (status) => status < 400
             });
 
@@ -2499,13 +2509,22 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
     }
 
     try {
-        const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-        const requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+        let requestUrl = apiUrl.toString();
+        let proxyAgent = undefined;
+
+        if (USE_TOR && torAgent) {
+            proxyAgent = torAgent;
+        } else {
+            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+            requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+        }
 
         const response = await axios.get(requestUrl, {
             headers: getStreamimdbApiHeaders(embedUrl),
             timeout: 10000,
             responseType: 'json',
+            httpAgent: proxyAgent,
+            httpsAgent: proxyAgent,
             validateStatus: (status) => status < 500
         });
 
