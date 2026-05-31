@@ -1274,11 +1274,22 @@ app.get('/api/video-proxy', async (req, res) => {
             targetUrl.includes('justhd.tv') ||
             targetUrl.includes('nextlevelbrandstudio.site') ||
             targetUrl.includes('premiumleadgeneration.site');
-        const proxyAgent = isStreamimdb ? torAgent : undefined;
+        let requestUrl = targetUrl;
+        let proxyAgent = undefined;
+
+        if (isStreamimdb) {
+            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+            requestUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
+            if (customReferer) {
+                requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
+            }
+        } else {
+            proxyAgent = torAgent;
+        }
 
         const response = await axios({
             method: 'get',
-            url: targetUrl,
+            url: requestUrl,
             responseType: isM3U8 ? 'text' : 'stream',
             headers: headers,
             timeout: 30000,
@@ -2484,7 +2495,10 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
     }
 
     try {
-        const response = await axios.get(apiUrl.toString(), {
+        const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+        const requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+
+        const response = await axios.get(requestUrl, {
             headers: getStreamimdbApiHeaders(embedUrl),
             timeout: 10000,
             responseType: 'json',
