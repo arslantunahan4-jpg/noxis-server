@@ -24,8 +24,9 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
+const USE_TOR = process.env.USE_TOR === 'true';
 const TOR_SOCKS_PROXY = process.env.TOR_SOCKS_PROXY || 'socks5://127.0.0.1:9050';
-const torAgent = new SocksProxyAgent(TOR_SOCKS_PROXY);
+const torAgent = USE_TOR ? new SocksProxyAgent(TOR_SOCKS_PROXY) : undefined;
 
 puppeteer.use(StealthPlugin());
 
