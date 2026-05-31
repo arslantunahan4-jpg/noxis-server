@@ -1,0 +1,588 @@
+:root {
+  /* ============================================
+     LIQUID GLASS - Admin Theme Variables
+     ============================================ */
+  
+  /* Base Glass Colors - Liquid Style */
+  --admin-glass-bg: rgba(255, 255, 255, 0.06);
+  --admin-glass-bg-hover: rgba(255, 255, 255, 0.12);
+  --admin-glass-bg-active: rgba(255, 255, 255, 0.16);
+  
+  /* Border Colors */
+  --admin-glass-border: rgba(255, 255, 255, 0.08);
+  --admin-glass-border-hover: rgba(255, 255, 255, 0.2);
+  --admin-glass-border-focus: rgba(255, 255, 255, 0.35);
+  
+  /* Liquid Blur Effects */
+  --admin-blur: blur(20px) saturate(180%);
+  --admin-blur-intense: blur(40px) saturate(200%);
+  
+  /* Neon Glow Colors */
+  --neon-blue: #0a84ff;
+  --neon-blue-glow: rgba(10, 132, 255, 0.5);
+  --neon-green: #30d158;
+  --neon-green-glow: rgba(48, 209, 88, 0.5);
+  --neon-pink: #ff375f;
+  --neon-pink-glow: rgba(255, 55, 95, 0.5);
+  --neon-purple: #bf5af2;
+  --neon-purple-glow: rgba(191, 90, 242, 0.5);
+  
+  /* Gradient Overlays */
+  --admin-gradient: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.08) 100%);
+  --admin-gradient-hover: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 50%,
+      rgba(255, 255, 255, 0.12) 100%);
+  
+  /* Shine Effect */
+  --admin-shine: linear-gradient(120deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.08) 45%,
+      rgba(255, 255, 255, 0.15) 50%,
+      rgba(255, 255, 255, 0.08) 55%,
+      transparent 100%);
+  
+  /* Shadows */
+  --admin-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --admin-shadow-hover: 
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  
+  /* Neon Glow Shadows */
+  --neon-blue-shadow: 0 0 20px var(--neon-blue-glow), 0 0 40px rgba(10, 132, 255, 0.3);
+  --neon-green-shadow: 0 0 20px var(--neon-green-glow), 0 0 40px rgba(48, 209, 88, 0.3);
+  --neon-pink-shadow: 0 0 20px var(--neon-pink-glow), 0 0 40px rgba(255, 55, 95, 0.3);
+  --neon-purple-shadow: 0 0 20px var(--neon-purple-glow), 0 0 40px rgba(191, 90, 242, 0.3);
+  
+  /* Transitions */
+  --transition-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* Border Radius */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+}
+
+/* ============================================
+   GLASS CARD - Enhanced with Liquid Effects
+   ============================================ */
+.glass-card {
+  position: relative;
+  background: var(--admin-glass-bg) !important;
+  backdrop-filter: var(--admin-blur);
+  -webkit-backdrop-filter: var(--admin-blur);
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--admin-shadow);
+  overflow: hidden;
+  
+  /* Smooth multi-property transition */
+  transition: 
+    transform 0.4s var(--transition-spring),
+    box-shadow 0.4s var(--transition-smooth),
+    border-color 0.3s ease;
+  
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+}
+
+/* Gradient Overlay - Liquid Glass Effect */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--admin-gradient);
+  opacity: 0.6;
+  pointer-events: none;
+  border-radius: inherit;
+  transition: opacity 0.4s ease;
+}
+
+/* Shine Effect on Hover */
+.glass-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: var(--admin-shine);
+  transform: skewX(-20deg);
+  transition: left 0.8s var(--transition-smooth);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Hover State - Elevated with Glow */
+.glass-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  border-color: var(--admin-glass-border-hover);
+  box-shadow: 
+    var(--admin-shadow-hover),
+    0 0 30px rgba(255, 255, 255, 0.05);
+}
+
+.glass-card:hover::before {
+  opacity: 0.8;
+  background: var(--admin-gradient-hover);
+}
+
+.glass-card:hover::after {
+  left: 150%;
+}
+
+/* Focus State for Accessibility */
+.glass-card:focus-within {
+  border-color: var(--admin-glass-border-focus);
+  box-shadow: 
+    0 0 0 3px rgba(10, 132, 255, 0.3),
+    var(--admin-shadow-hover);
+  transform: translateY(-4px) scale(1.01);
+}
+
+/* ============================================
+   STAT VALUE - Neon Gradient Text
+   ============================================ */
+.stat-value {
+  position: relative;
+  background: linear-gradient(135deg, #fff 0%, #a5a6fc 50%, #0a84ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  
+  /* Subtle text glow */
+  text-shadow: 0 0 30px rgba(10, 132, 255, 0.3);
+  animation: statPulse 3s ease-in-out infinite;
+}
+
+@keyframes statPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.1); }
+}
+
+.stat-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   DATAGRID - Liquid Glass Data Table
+   ============================================ */
+.MuiDataGrid-root {
+  background: rgba(10, 12, 20, 0.5) !important;
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  border: 1px solid var(--admin-glass-border) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  box-shadow: var(--admin-shadow);
+  
+  /* Smooth transitions for all interactive elements */
+  --DataGrid-rowBorder: none;
+}
+
+/* Column Headers - Liquid Glass Style */
+.MuiDataGrid-columnHeaders {
+  background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 100%) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--admin-glass-border) !important;
+}
+
+.MuiDataGrid-columnHeader {
+  transition: all 0.3s var(--transition-smooth);
+}
+
+.MuiDataGrid-columnHeader:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.MuiDataGrid-columnHeaderTitle {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+}
+
+/* Virtual Scroller - Transparent */
+.MuiDataGrid-virtualScroller {
+  background: transparent !important;
+}
+
+/* Data Rows - Smooth Hover with Neon Glow */
+.MuiDataGrid-row {
+  transition: all 0.3s var(--transition-smooth);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.MuiDataGrid-row:hover {
+  background: linear-gradient(90deg,
+      rgba(10, 132, 255, 0.08) 0%,
+      rgba(10, 132, 255, 0.04) 50%,
+      rgba(10, 132, 255, 0.08) 100%) !important;
+  box-shadow: inset 0 0 20px rgba(10, 132, 255, 0.05);
+}
+
+/* Selected Row - Blue Neon Glow */
+.MuiDataGrid-row.Mui-selected {
+  background: linear-gradient(90deg,
+      rgba(10, 132, 255, 0.15) 0%,
+      rgba(10, 132, 255, 0.08) 50%,
+      rgba(10, 132, 255, 0.15) 100%) !important;
+  box-shadow: 
+    inset 0 0 30px rgba(10, 132, 255, 0.1),
+    0 0 20px rgba(10, 132, 255, 0.1);
+}
+
+.MuiDataGrid-row.Mui-selected:hover {
+  background: linear-gradient(90deg,
+      rgba(10, 132, 255, 0.2) 0%,
+      rgba(10, 132, 255, 0.12) 50%,
+      rgba(10, 132, 255, 0.2) 100%) !important;
+}
+
+/* Footer Container - Glass Effect */
+.MuiDataGrid-footerContainer {
+  background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.1) 100%) !important;
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--admin-glass-border) !important;
+}
+
+/* Pagination Buttons */
+.MuiDataGrid-footerContainer .MuiButtonBase-root {
+  background: transparent;
+  border: 1px solid var(--admin-glass-border);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.3s var(--transition-smooth);
+}
+
+.MuiDataGrid-footerContainer .MuiButtonBase-root:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--admin-glass-border-hover);
+  color: white;
+  transform: scale(1.05);
+}
+
+.MuiDataGrid-footerContainer .MuiButtonBase-root.Mui-disabled {
+  opacity: 0.3;
+}
+
+/* Cell Content */
+.MuiDataGrid-cell {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.MuiDataGrid-cell:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.3);
+}
+
+/* Checkbox Styling */
+.MuiDataGrid-root .MuiCheckbox-root {
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s var(--transition-spring);
+}
+
+.MuiDataGrid-root .MuiCheckbox-root.Mui-checked {
+  color: var(--neon-blue);
+  filter: drop-shadow(0 0 4px var(--neon-blue-glow));
+}
+
+/* ============================================
+   ADMIN BUTTONS - Neon Glow Effects
+   ============================================ */
+.admin-btn {
+  position: relative;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s var(--transition-spring);
+  
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+}
+
+/* Primary Button - Blue Neon */
+.admin-btn-primary {
+  background: linear-gradient(135deg,
+      rgba(10, 132, 255, 0.9) 0%,
+      rgba(10, 132, 255, 0.7) 100%);
+  color: white;
+  border-color: rgba(10, 132, 255, 0.5);
+  box-shadow: 
+    0 4px 15px rgba(10, 132, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.admin-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      transparent 50%);
+  pointer-events: none;
+}
+
+.admin-btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    var(--neon-blue-shadow),
+    0 8px 25px rgba(10, 132, 255, 0.4);
+}
+
+.admin-btn-primary:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 10px rgba(10, 132, 255, 0.3);
+}
+
+/* Success Button - Green Neon */
+.admin-btn-success {
+  background: linear-gradient(135deg,
+  rgba(48, 209, 88, 0.9) 0%,
+      rgba(48, 209, 88, 0.7) 100%);
+  color: white;
+  border-color: rgba(48, 209, 88, 0.5);
+  box-shadow: 
+    0 4px 15px rgba(48, 209, 88, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.admin-btn-success:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    var(--neon-green-shadow),
+    0 8px 25px rgba(48, 209, 88, 0.4);
+}
+
+/* Danger Button - Pink/Red Neon */
+.admin-btn-danger {
+  background: linear-gradient(135deg,
+      rgba(255, 55, 95, 0.9) 0%,
+      rgba(255, 55, 95, 0.7) 100%);
+  color: white;
+  border-color: rgba(255, 55, 95, 0.5);
+  box-shadow: 
+    0 4px 15px rgba(255, 55, 95, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.admin-btn-danger:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    var(--neon-pink-shadow),
+    0 8px 25px rgba(255, 55, 95, 0.4);
+}
+
+/* Secondary/Ghost Button - Glass Effect */
+.admin-btn-secondary {
+  background: var(--admin-glass-bg);
+  backdrop-filter: var(--admin-blur);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--admin-glass-border);
+}
+
+.admin-btn-secondary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--admin-gradient);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.admin-btn-secondary:hover {
+  background: var(--admin-glass-bg-hover);
+  border-color: var(--admin-glass-border-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--admin-shadow-hover);
+}
+
+/* Button Loading State */
+.admin-btn-loading {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.admin-btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 50%;
+  left: 50%;
+  margin: -10px 0 0 -10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: btnSpin 0.8s linear infinite;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   SIDEBAR - Enhanced Glass Effect
+   ============================================ */
+.ps-sidebar-container {
+  position: relative;
+  background: linear-gradient(180deg,
+      rgba(10, 12, 20, 0.95) 0%,
+      rgba(15, 18, 30, 0.95) 100%) !important;
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border-right: 1px solid var(--admin-glass-border);
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+}
+
+.ps-sidebar-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(180deg,
+      rgba(10, 132, 255, 0.1) 0%,
+      transparent 100%);
+  pointer-events: none;
+}
+
+/* Sidebar Menu Items */
+.ps-menuitem-root {
+  transition: all 0.3s var(--transition-smooth);
+}
+
+.ps-menuitem-root:hover {
+  background: linear-gradient(90deg,
+      rgba(10, 132, 255, 0.1) 0%,
+      transparent 100%) !important;
+}
+
+.ps-menuitem-root.ps-active {
+  background: linear-gradient(90deg,
+      rgba(10, 132, 255, 0.15) 0%,
+      rgba(10, 132, 255, 0.05) 100%) !important;
+  border-left: 3px solid var(--neon-blue);
+  box-shadow: inset 0 0 20px rgba(10, 132, 255, 0.1);
+}
+
+/* ============================================
+   APP BACKGROUND - Deep Gradient
+   ============================================ */
+.app {
+  position: relative;
+  background: 
+    radial-gradient(ellipse at 0% 0%, rgba(10, 132, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(191, 90, 242, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, #0a0c12 0%, #12141c 50%, #0d0f16 100%) !important;
+  min-height: 100vh;
+}
+
+/* Animated Background Glow */
+.app::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(10, 132, 255, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(191, 90, 242, 0.03) 0%, transparent 40%);
+  animation: backgroundFloat 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes backgroundFloat {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(2%, 2%) rotate(1deg); }
+  66% { transform: translate(-1%, 1%) rotate(-1deg); }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+.glow-blue { box-shadow: var(--neon-blue-shadow); }
+.glow-green { box-shadow: var(--neon-green-shadow); }
+.glow-pink { box-shadow: var(--neon-pink-shadow); }
+.glow-purple { box-shadow: var(--neon-purple-shadow); }
+
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, #a5a6fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(135deg, #fff 0%, #0a84ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pulse Animation for Status Indicators */
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* Floating Animation */
+.float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Shimmer Loading Effect */
+.shimmer {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

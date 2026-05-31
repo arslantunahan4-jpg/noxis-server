@@ -1,0 +1,23 @@
+/* Custom styles to ensure Pro Sidebar fits dark theme */
+.ps-sidebar-root {
+  border-right: none !important;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.ps-sidebar-container {
+  background-color: transparent !important;
+}
+
+.MuiBox-root {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Source Sans Pro', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

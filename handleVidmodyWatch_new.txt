@@ -1,0 +1,148 @@
+    const handleVidmodyWatch = async (seasonNum = null, episodeNum = null) => {
+        try {
+            setMagnetLoading(true);
+            setMagnetError(null); 
+            
+            let imdbId = details?.imdb_id;
+            if (!imdbId && details?.external_ids?.imdb_id) imdbId = details.external_ids.imdb_id;
+
+            if (!imdbId) {
+                const type = isSeries ? 'tv' : 'movie';
+                const d = await fetchTMDB(`/${type}/${movie.id}/external_ids`);
+                imdbId = d?.imdb_id;
+            }
+            
+            setCurrentImdbId(imdbId);
+
+            const s = seasonNum !== null ? seasonNum : (selectedSeason || 1);
+            const e = episodeNum !== null ? episodeNum : 1;
+
+            if (isSeries) {
+                setSelectedTorrentSeason(s);
+                setSelectedTorrentEpisode(e);
+            }
+
+            setMagnetError("Vidmody taranıyor...");
+
+            const qualityPatterns = [
+                'main1080dualcr', 'main1080encr', 'main1080crdual', 'main_1080p', 'main_1080', 'main',
+                'main720dualcr', 'main720encr', 'main720crdual', 'main_720p',
+                'main480dualcr', 'main480encr', 'main480crdual', 'main480',
+                'main360dualcr', 'main360encr', 'main360crdual', 'main360'
+            ];
+
+            const createVidmodyUrl = (quality, audioVer = 'a1') => {
+                if (isSeries) {
+                    const eStr = e.toString().padStart(2, '0');
+                    return `https://vidmody.com/mm/${imdbId}/s${s}/e${eStr}/${quality}/index-v1-${audioVer}.gif`;
+                }
+                return `https://vidmody.com/mm/${imdbId}/${quality}/index-v1-${audioVer}.gif`;
+            };
+
+            const validSources = [];
+            
+            await Promise.all(qualityPatterns.map(async (quality) => {
+                try {
+                    const testUrl = createVidmodyUrl(quality, 'a1');
+                    const check = await fetch(`${WORKER_URL}?url=${encodeURIComponent(testUrl)}&mode=proxy`, { method: 'HEAD' });
+                    if (check.ok) {
+                        validSources.push({ quality, url: testUrl });
+                    }
+                } catch (e) {}
+            }));
+
+            if (validSources.length === 0) {
+                 console.log("Vidmody sources not found, trying M3U fallback...");
+                 setMagnetError("M3U kaynakları taranıyor...");
+                 const type = isSeries ? 'tv' : 'movie';
+                 const m3uUrl = await findInM3U(movie.title || movie.name, s, e, type);
+                 if (m3uUrl) {
+                     console.log("Found M3U fallback:", m3uUrl);
+                     
+                     // Fetch extra subtitles even for M3U
+                     try {
+                        const subParams = new URLSearchParams({
+                            imdb: imdbId,
+                            season: isSeries ? s : '',
+                            episode: isSeries ? e : ''
+                        });
+                        const subRes = await fetch(`${SERVER_URL}/subtitles?${subParams}`);
+                        const subData = await subRes.json();
+                        if (Array.isArray(subData)) setSubtitles(subData);
+                     } catch (err) {}
+
+                     setStreamUrl(m3uUrl);
+                     setShowMagnetPlayer(true);
+                     setMagnetLoading(false);
+                     return;
+                 }
+                 throw new Error("Kaynak bulunamadı");
+            }
+
+            const sortOrder = ['1080', '720', '480', '360', 'main'];
+            validSources.sort((a, b) => {
+                const aIdx = sortOrder.findIndex(q => a.quality.includes(q));
+                const bIdx = sortOrder.findIndex(q => b.quality.includes(q));
+                return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+            });
+
+            console.log('[Vidmody] Found Sources:', validSources);
+
+            let finalStreamUrl = "";
+            let subParam = "";
+
+            try {
+                let subUrl = "";
+                if (isSeries) {
+                    const eStr = e.toString().padStart(2, '0');
+                    subUrl = `https://vidmody.com/mm/${imdbId}/s${s}/e${eStr}/lang/tur/sub_tr.vtt/index.gif`;
+                } else {
+                    subUrl = `https://vidmody.com/mm/${imdbId}/lang/tur/sub_tr.vtt/index.gif`;
+                }
+
+                const checkSub = await fetch(`${WORKER_URL}?url=${encodeURIComponent(subUrl)}&mode=proxy`, { method: 'HEAD' });
+                if (checkSub.ok) {
+                    console.log('[Vidmody] Native subtitle found');
+                    subParam = `&subtitleUrl=${encodeURIComponent(subUrl)}`;
+                }
+            } catch (e) {
+                console.warn('[Vidmody] Subtitle check failed', e);
+            }
+
+            const sourcesJson = encodeURIComponent(JSON.stringify(validSources));
+            finalStreamUrl = `${WORKER_URL}?mode=master&sources=${sourcesJson}${subParam}&dual=true`;
+
+            try {
+                const subParams = new URLSearchParams({
+                    imdb: imdbId,
+                    season: isSeries ? s : '',
+                    episode: isSeries ? e : ''
+                });
+                const subRes = await fetch(`${SERVER_URL}/subtitles?${subParams}`);
+                const subData = await subRes.json();
+
+                if (Array.isArray(subData) && subData.length > 0) {
+                    const sorted = subData.sort((a, b) => {
+                        if (a.lang === 'tur' || a.lang === 'tr') return -1;
+                        if (b.lang === 'tur' || b.lang === 'tr') return 1;
+                        return 0;
+                    });
+                    setSubtitles(sorted);
+                } else {
+                    setSubtitles([]);
+                }
+            } catch (error) {
+                console.error("Subtitle error:", error);
+                setSubtitles([]);
+            }
+
+            setStreamUrl(finalStreamUrl);
+            setShowMagnetPlayer(true);
+        } catch (err) {
+            console.error(err);
+            setMagnetError("Hızlı kaynak bulunamadı");
+            setTimeout(() => setMagnetError(null), 3000);
+        } finally {
+            setMagnetLoading(false);
+        }
+    };

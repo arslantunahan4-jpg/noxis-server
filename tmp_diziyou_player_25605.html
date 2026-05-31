@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Diziyou Player</title>
+	<link href="https://cdn.diziyou.one/player/skins/diziyou/videojs.min.css" rel="stylesheet" type="text/css">
+	<script src="https://cdn.diziyou.one/player/js/video.min.js"></script>
+	<script src="https://cdn.diziyou.one/player/js/nuevo.min.js"></script>
+	<script src="https://cdn.diziyou.one/player/lang/tr.js"></script>
+	<script src="https://cdn.diziyou.one/player/plugins/videojs.hotkeys.min.js"></script>
+	<style>html,body{height:100%;position:relative;margin:0;overflow: hidden !important}*:focus{outline:none}</style>
+  </head>
+  <body>
+	<video id="diziyou" class="video-js vjs-fluid vjs-big-play-centered" controls preload playsinline width="100%" height="100%" data-setup='{"aspectRatio":"16:9", "fluid": true, "language": "tr", "poster":"https://www.diziyou.one/wp-content/uploads/player/dexter.jpg"}' crossorigin="anonymous">
+		<source id="diziyouSource" src="https://storage.diziyou.one/episodes/25605/play.m3u8" type="application/x-mpegURL">
+		<track src="https://storage.diziyou.one/subtitles/25605/tr.vtt" kind="captions" srclang="tr" label="Türkçe" default>
+		<track src="https://storage.diziyou.one/subtitles/25605/en.vtt" kind="captions" srclang="en" label="English">
+	</video>
+	<script>
+	    function dyMoT() {
+			const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+			const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+			const isMobileUA = /android|iphone|ipad|ipod|blackberry|windows phone|iemobile|opera mini/i.test(userAgent);
+			const isIpadOS = (userAgent.includes("Mac") && hasTouch && !('screen' in window));
+			return hasTouch && (isMobileUA || isIpadOS);
+		}
+		var player = videojs('diziyou', {playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2]});
+		player.nuevo({ 
+			buttonRewind: true,
+			buttonForward: true,
+			logo: 'https://www.diziyou.one/wp-content/uploads/diziyou.png',
+			logoposition:'RT',
+			logourl:'https://www.diziyou.one/',
+		});
+		player.hotkeys({
+			volumeStep: 0.1,
+			seekStep: 5
+		});
+		if (dyMoT()) {
+			player.vroll([
+				{
+					src: "https://subaxe.xyz/1.mp4",
+					type: "video/mp4",
+					href: "https://bhs-spa.bjordr.xyz/tr/poker?partner=p294p20438pfcc1",
+					offset: '0',
+					skip: 5,
+					id: '1'
+				},	{
+					src: "https://x.subaxe.xyz/2.mp4",
+					type: "video/mp4",
+					href: "https://paribahis.ohmyrdr.xyz/tr/poker?partner=p2695p20275p5fb2",
+					offset: '0.1',
+					skip: 5,
+					id: '2'
+				},	{
+					src: "https://x.subaxe.xyz/3.mp4",
+					type: "video/mp4",
+					href: "https://btt-tr.jdbyag.xyz/tr/casino?partner=p2001p23177p4e2a#registration-bonus",
+					offset: '0.2',
+					skip: 5,
+					id: '3'
+				}
+			]);
+		}
+        var videoKey = "dy_resume_" + btoa(window.location.href); 
+        var isResumed = false;
+        var originalDiziSrc = document.getElementById('diziyouSource').src;
+        player.on('timeupdate', function() {
+            if (player.currentSrc() === originalDiziSrc && !player.hasClass('vjs-ad-playing')) {
+                var curr = player.currentTime();
+                var dur = player.duration();
+                
+                if (curr > 10 && dur > 0 && (curr / dur) < 0.95) {
+                    localStorage.setItem(videoKey, curr);
+                } else if (dur > 0 && (curr / dur) >= 0.95) {
+                    localStorage.removeItem(videoKey);
+                }
+            }
+        });
+        player.on('playing', function() {
+            if (!isResumed && player.currentSrc() === originalDiziSrc && !player.hasClass('vjs-ad-playing')) {
+                var savedTime = localStorage.getItem(videoKey);
+                
+                if (savedTime && parseFloat(savedTime) > 10 && player.currentTime() < 10) {
+                    player.currentTime(parseFloat(savedTime));
+                }
+                isResumed = true; 
+            }
+        });
+        var searchOverlay = document.createElement('div');
+        searchOverlay.innerHTML = 'Güncel adres için Google\'da <b style="color:#ffd500; font-weight:600;">Diziyou</b> aratýn.';
+        searchOverlay.style = "position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(0, 0, 0, 0.65); color:#eaeaea; padding:clamp(12px, 3vw, 15px) clamp(20px, 5vw, 30px); border-radius:8px; z-index:998; font-size:clamp(15px, 4.5vw, 18px); font-weight:400; text-align:center; display:none; pointer-events:none; border: 3px solid rgba(254, 213, 0, 0.8); backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: max-content; max-width: 85%; box-sizing: border-box; letter-spacing: 0.5px;";
+        player.el().appendChild(searchOverlay);
+		player.on('pause', function() {
+			setTimeout(function() {
+				if (player.paused() && !player.seeking() && player.currentSrc() === originalDiziSrc && !player.hasClass('vjs-ad-playing')) {
+					if (player.currentTime() > 1 && player.currentTime() < player.duration()) {
+						searchOverlay.style.display = 'block';
+					}
+				}
+			}, 150);
+		});
+        player.on('play', function() {
+            searchOverlay.style.display = 'none';
+        });
+        const urlParams = new URLSearchParams(window.location.search);
+        var nextEpisodeUrl = urlParams.get('next');
+        var autoPlayCancelled = false;
+        var nextOverlay = document.createElement('div');
+        nextOverlay.innerHTML = `
+            <div style="margin-bottom:10px; font-weight:500; font-family: sans-serif; font-size: 13px;">
+                Sýradaki bölüm: <span id="dyNextCount" style="color:#ffd500; font-weight:bold; font-size: 15px;">15</span>
+            </div>
+            <button id="dyCancelNext" style="background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25); color: #fff; padding: 6px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; width: 100%; text-transform: uppercase; letter-spacing: 0.5px;">Ýptal Et</button>
+        `;
+        nextOverlay.style = "position:absolute; bottom:12%; right:5%; background:rgba(10, 10, 10, 0.9); color:#fff; padding:12px 15px; border-radius:10px; z-index:999; text-align:center; display:none; border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); box-shadow: 0 8px 25px rgba(0,0,0,0.5); width: 180px; max-width: 45%; box-sizing: border-box;";
+        player.el().appendChild(nextOverlay);
+        document.getElementById('dyCancelNext').addEventListener('click', function(e) {
+            e.preventDefault();
+            autoPlayCancelled = true;
+            nextOverlay.style.display = 'none';
+        });
+        player.on('timeupdate', function() {
+            if (nextEpisodeUrl && !autoPlayCancelled && player.currentSrc() === originalDiziSrc && !player.hasClass('vjs-ad-playing')) {
+                var timeLeft = player.duration() - player.currentTime();
+                if (timeLeft <= 15 && timeLeft > 0.5) {
+                    nextOverlay.style.display = 'block';
+                    document.getElementById('dyNextCount').innerText = Math.ceil(timeLeft);
+                } else {
+                    nextOverlay.style.display = 'none';
+                }
+            }
+        });
+        player.on('ended', function() {
+            if (nextEpisodeUrl && !autoPlayCancelled && player.currentSrc() === originalDiziSrc && !player.hasClass('vjs-ad-playing')) {
+                window.top.location.href = nextEpisodeUrl;
+            }
+        });	
+	</script>
+	<script>var _paq=window._paq=window._paq||[];_paq.push(["trackPageView"]),_paq.push(["enableLinkTracking"]),function(){var a="//s.nkdyzf.com/";_paq.push(["setTrackerUrl",a+"m.php"]),_paq.push(["setSiteId","16"]);var e=(t=document).createElement("script"),t=t.getElementsByTagName("script")[0];e.async=!0,e.src=a+"m.js",t.parentNode.insertBefore(e,t)}();</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"7b85b7055b614afb9fa6ce5afb4f5ce4","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
