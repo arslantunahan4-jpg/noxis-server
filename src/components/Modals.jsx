@@ -87,6 +87,24 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     const [dominantColor, setDominantColor] = useState([10, 10, 12]);
     const isSeries = movie.media_type === 'tv' || movie.first_air_date;
 
+    const [torrentOptions, setTorrentOptions] = useState([]);
+    const [showTorrentPicker, setShowTorrentPicker] = useState(false);
+    const [selectedTorrentSeason, setSelectedTorrentSeason] = useState(1);
+    const [selectedTorrentEpisode, setSelectedTorrentEpisode] = useState(1);
+    const [currentImdbId, setCurrentImdbId] = useState(null);
+    const [vidmodyAudioTracks, setVidmodyAudioTracks] = useState(null);
+    const [diziyouAudioTracks, setDiziyouAudioTracks] = useState(null);
+    const [dizimomAudioTracks, setDizimomAudioTracks] = useState(null);
+    const [streamimdbEmbedFallbackUrl, setStreamimdbEmbedFallbackUrl] = useState(null);
+    const [useStreamimdbEmbedFallback, setUseStreamimdbEmbedFallback] = useState(false);
+
+    // Noxis Premium Quality and Network settings states
+    const [showQualitySelector, setShowQualitySelector] = useState(false);
+    const [pendingDownloadType, setPendingDownloadType] = useState(null); // 'movie' or 'episode'
+    const [pendingEpisodeNum, setPendingEpisodeNum] = useState(null);
+    const [selectedQuality, setSelectedQuality] = useState('HD');
+    const [wifiOnlySetting, setWifiOnlySetting] = useState(false);
+
     useEffect(() => {
         let isMounted = true;
         setDominantColor([10, 10, 12]);
@@ -115,13 +133,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     const isDownloadingRef = useRef(false);
     const downloadingEpisodeRef = useRef(1);
     const [downloadingId, setDownloadingId] = useState(null);
-
-    // Noxis Premium Quality and Network settings states
-    const [showQualitySelector, setShowQualitySelector] = useState(false);
-    const [pendingDownloadType, setPendingDownloadType] = useState(null); // 'movie' or 'episode'
-    const [pendingEpisodeNum, setPendingEpisodeNum] = useState(null);
-    const [selectedQuality, setSelectedQuality] = useState('HD');
-    const [wifiOnlySetting, setWifiOnlySetting] = useState(false);
 
     // Intercept resolved streamUrl for offline download
     useEffect(() => {
@@ -196,16 +207,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             handleVidmodyWatch(selectedSeason, pendingEpisodeNum);
         }
     };
-    const [torrentOptions, setTorrentOptions] = useState([]);
-    const [showTorrentPicker, setShowTorrentPicker] = useState(false);
-    const [selectedTorrentSeason, setSelectedTorrentSeason] = useState(1);
-    const [selectedTorrentEpisode, setSelectedTorrentEpisode] = useState(1);
-    const [currentImdbId, setCurrentImdbId] = useState(null);
-    const [vidmodyAudioTracks, setVidmodyAudioTracks] = useState(null);
-    const [diziyouAudioTracks, setDiziyouAudioTracks] = useState(null);
-    const [dizimomAudioTracks, setDizimomAudioTracks] = useState(null);
-    const [streamimdbEmbedFallbackUrl, setStreamimdbEmbedFallbackUrl] = useState(null);
-    const [useStreamimdbEmbedFallback, setUseStreamimdbEmbedFallback] = useState(false);
 
     const episodesRef = useRef(null);
     const similarRef = useRef(null);
