@@ -15,7 +15,7 @@ import { buildVidmodyExternalAudioTracks, buildVidmodyMasterUrl } from '../utils
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
 import { mergeSubtitleLists, normalizeExternalSubtitles, normalizeSourceSubtitles } from '../utils/subtitles';
 import { getDominantColor } from '../utils/colorExtractor';
-import { downloadNoxisMovie } from '../utils/appBridge';
+import { downloadNoxisMovie, isAppBridgeAvailable } from '../utils/appBridge';
 
 
 // VPS veya Backend URL'si (.env dosyasından gelir veya URL'den override edilir)
@@ -902,23 +902,25 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                 <span>Fragman</span>
                             </button>
                         )}
-                        <button
-                            tabIndex="0"
-                            onClick={handleDownloadMovie}
-                            className="focusable glass-button download-btn"
-                            disabled={downloadingId !== null}
-                            style={{
-                                border: '1px solid rgba(191, 90, 242, 0.4)',
-                                background: downloadingId === 'movie' ? 'rgba(191, 90, 242, 0.25)' : 'var(--liquid-glass-bg)'
-                            }}
-                        >
-                            {downloadingId === 'movie' ? (
-                                <i className="fas fa-spinner fa-spin" style={{ color: '#bf5af2' }}></i>
-                            ) : (
-                                <i className="fas fa-download" style={{ color: '#bf5af2' }}></i>
-                            )}
-                            <span>{downloadingId === 'movie' ? 'Hazırlanıyor...' : 'Cihaza İndir'}</span>
-                        </button>
+                        {isAppBridgeAvailable() && (
+                            <button
+                                tabIndex="0"
+                                onClick={handleDownloadMovie}
+                                className="focusable glass-button download-btn"
+                                disabled={downloadingId !== null}
+                                style={{
+                                    border: '1px solid rgba(191, 90, 242, 0.4)',
+                                    background: downloadingId === 'movie' ? 'rgba(191, 90, 242, 0.25)' : 'var(--liquid-glass-bg)'
+                                }}
+                            >
+                                {downloadingId === 'movie' ? (
+                                    <i className="fas fa-spinner fa-spin" style={{ color: '#bf5af2' }}></i>
+                                ) : (
+                                    <i className="fas fa-download" style={{ color: '#bf5af2' }}></i>
+                                )}
+                                <span>{downloadingId === 'movie' ? 'Hazırlanıyor...' : 'Cihaza İndir'}</span>
+                            </button>
+                        )}
                     </motion.div>
 
                     {isSeries && (
@@ -998,40 +1000,42 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                                     </div>
                                                 </button>
 
-                                                <button
-                                                     onClick={(e) => {
-                                                         e.stopPropagation();
-                                                         handleDownloadEpisode(ep.episode_number);
-                                                     }}
-                                                     className="focusable episode-download-btn"
-                                                     disabled={downloadingId !== null}
-                                                     style={{
-                                                         position: 'absolute',
-                                                         top: '8px',
-                                                         right: '8px',
-                                                         width: '32px',
-                                                         height: '32px',
-                                                         borderRadius: '50%',
-                                                         background: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'rgba(191, 90, 242, 0.35)' : 'rgba(0, 0, 0, 0.6)',
-                                                         backdropFilter: 'blur(10px)',
-                                                         WebkitBackdropFilter: 'blur(10px)',
-                                                         border: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '1px solid #bf5af2' : '1px solid rgba(255, 255, 255, 0.2)',
-                                                         color: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '#bf5af2' : 'white',
-                                                         display: 'flex',
-                                                         alignItems: 'center',
-                                                         justifyContent: 'center',
-                                                         zIndex: 5,
-                                                         cursor: 'pointer',
-                                                         transition: 'all 0.2s ease'
-                                                     }}
-                                                     title="Bölümü Cihaza İndir"
-                                                 >
-                                                     {downloadingId === `s${selectedSeason}e${ep.episode_number}` ? (
-                                                         <i className="fas fa-spinner fa-spin" style={{ fontSize: '12px' }}></i>
-                                                     ) : (
-                                                         <i className="fas fa-download" style={{ fontSize: '12px' }}></i>
-                                                     )}
-                                                 </button>
+                                                {isAppBridgeAvailable() && (
+                                                    <button
+                                                         onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             handleDownloadEpisode(ep.episode_number);
+                                                         }}
+                                                         className="focusable episode-download-btn"
+                                                         disabled={downloadingId !== null}
+                                                         style={{
+                                                             position: 'absolute',
+                                                             top: '8px',
+                                                             right: '8px',
+                                                             width: '32px',
+                                                             height: '32px',
+                                                             borderRadius: '50%',
+                                                             background: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'rgba(191, 90, 242, 0.35)' : 'rgba(0, 0, 0, 0.6)',
+                                                             backdropFilter: 'blur(10px)',
+                                                             WebkitBackdropFilter: 'blur(10px)',
+                                                             border: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '1px solid #bf5af2' : '1px solid rgba(255, 255, 255, 0.2)',
+                                                             color: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '#bf5af2' : 'white',
+                                                             display: 'flex',
+                                                             alignItems: 'center',
+                                                             justifyContent: 'center',
+                                                             zIndex: 5,
+                                                             cursor: 'pointer',
+                                                             transition: 'all 0.2s ease'
+                                                         }}
+                                                         title="Bölümü Cihaza İndir"
+                                                     >
+                                                         {downloadingId === `s${selectedSeason}e${ep.episode_number}` ? (
+                                                             <i className="fas fa-spinner fa-spin" style={{ fontSize: '12px' }}></i>
+                                                         ) : (
+                                                             <i className="fas fa-download" style={{ fontSize: '12px' }}></i>
+                                                         )}
+                                                     </button>
+                                                )}
 
                                                 <div style={{
                                                     position: 'absolute',
