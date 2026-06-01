@@ -862,6 +862,12 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
         const subtitleUrl = typeof subtitleInput === 'string' ? subtitleInput : subtitleInput?.url;
         if (!subtitleUrl) return null;
 
+        // CRITICAL: If this is a local offline video subtitle, do NOT proxy it through the remote server!
+        // Load it directly so the Android WebView's local resource interceptor can serve it from device storage.
+        if (subtitleUrl.includes('/local-video/')) {
+            return subtitleUrl;
+        }
+
         const directBrowserUrl = extractDirectBrowserSubtitleUrl(subtitleInput);
         if (directBrowserUrl) {
             return directBrowserUrl;

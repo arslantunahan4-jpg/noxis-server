@@ -14,6 +14,9 @@ import { findStreamimdbSource } from '../services/streamimdbScraper';
 import { buildVidmodyExternalAudioTracks, buildVidmodyMasterUrl } from '../utils/vidmody';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
 import { mergeSubtitleLists, normalizeExternalSubtitles, normalizeSourceSubtitles } from '../utils/subtitles';
+import { getDominantColor } from '../utils/colorExtractor';
+import { downloadNoxisMovie } from '../utils/appBridge';
+
 
 // VPS veya Backend URL'si (.env dosyasından gelir veya URL'den override edilir)
 const SERVER_URL = getApiBaseUrl();
@@ -81,13 +84,94 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     const [similar, setSimilar] = useState([]);
     const [trailer, setTrailer] = useState(null);
     const [showTrailer, setShowTrailer] = useState(false);
+    const [dominantColor, setDominantColor] = useState([10, 10, 12]);
     const isSeries = movie.media_type === 'tv' || movie.first_air_date;
+
+    useEffect(() => {
+        let isMounted = true;
+        setDominantColor([10, 10, 12]);
+
+        const posterPath = movie.poster_path || movie.backdrop_path;
+        if (posterPath) {
+            const url = `${POSTER_IMG}${posterPath}`;
+            getDominantColor(url).then(color => {
+                if (isMounted) {
+                    setDominantColor(color);
+                }
+            });
+        }
+
+        return () => {
+            isMounted = false;
+        };
+    }, [movie]);
 
     const [showMagnetPlayer, setShowMagnetPlayer] = useState(false);
     const [streamUrl, setStreamUrl] = useState('');
     const [subtitles, setSubtitles] = useState([]);
     const [magnetLoading, setMagnetLoading] = useState(false);
     const [magnetError, setMagnetError] = useState(null);
+
+    const isDownloadingRef = useRef(false);
+    const downloadingEpisodeRef = useRef(1);
+    const [downloadingId, setDownloadingId] = useState(null);
+
+    // Intercept resolved streamUrl for offline download
+    useEffect(() => {
+        if (streamUrl && isDownloadingRef.current) {
+            const epNum = downloadingEpisodeRef.current;
+            const title = isSeries 
+                ? `${movie.title || movie.name} - S${selectedSeason}E${epNum}` 
+                : (movie.title || movie.name);
+            
+            console.log("[DetailModal] Intercepted streamUrl for download:", streamUrl);
+            
+            // Trigger native bridge download with rich metadata
+            downloadNoxisMovie(
+                streamUrl, 
+                title, 
+                movie.poster_path || null, 
+                movie.backdrop_path || null, 
+                movie.media_type || (isSeries ? 'tv' : 'movie'), 
+                isSeries ? selectedSeason : null, 
+                isSeries ? epNum : null
+            );
+            
+            // Instantly clean up to prevent player overlay
+            setStreamUrl('');
+            setShowMagnetPlayer(false);
+            setDownloadingId(null);
+            isDownloadingRef.current = false;
+            setMagnetLoading(false);
+            setMagnetError("İndirme Başlatıldı!");
+            setTimeout(() => setMagnetError(null), 3000);
+        }
+    }, [streamUrl, isSeries, selectedSeason, movie.title, movie.name]);
+
+    // Handle failure to resolve download source
+    useEffect(() => {
+        if (isDownloadingRef.current && !magnetLoading && !streamUrl && magnetError && magnetError !== "İndirme Başlatıldı!") {
+            // Cancel downloading state on error
+            setDownloadingId(null);
+            isDownloadingRef.current = false;
+        }
+    }, [magnetLoading, streamUrl, magnetError]);
+
+    const handleDownloadMovie = () => {
+        isDownloadingRef.current = true;
+        downloadingEpisodeRef.current = 1;
+        setDownloadingId('movie');
+        // Resolves movie (Vidmody/StreamIMDb fallback)
+        handleVidmodyWatch(null, null);
+    };
+
+    const handleDownloadEpisode = (episodeNum) => {
+        isDownloadingRef.current = true;
+        downloadingEpisodeRef.current = episodeNum;
+        setDownloadingId(`s${selectedSeason}e${episodeNum}`);
+        // Resolves episode (Vidmody/StreamIMDb fallback)
+        handleVidmodyWatch(selectedSeason, episodeNum);
+    };
     const [torrentOptions, setTorrentOptions] = useState([]);
     const [showTorrentPicker, setShowTorrentPicker] = useState(false);
     const [selectedTorrentSeason, setSelectedTorrentSeason] = useState(1);
@@ -108,277 +192,12 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     const nextEpisode = isSeries
         ? episodes.find(ep => ep.episode_number === currentEpisodeNumber + 1)
         : null;
-    const [isNativeDownloading, setIsNativeDownloading] = useState(false);
-
-    const handleEpisodeNativeDownloadClick = async (episodeNum, episodeName) => {
-        const bridge = window.NoxisAppBridge || window.AndroidBridge;
-        if (!bridge) {
-            alert("Bu özellik yalnızca Noxis Android mobil uygulamasında kullanılabilir.");
-            return;
+    const handleStreamimdbPlaybackError = useCallback((event = {}) => {
+        if (event.hasStarted || Number(event.currentTime) > 3) return;
+        if (streamimdbEmbedFallbackUrl) {
+            setUseStreamimdbEmbedFallback(true);
         }
-
-        try {
-            let imdbId = details?.imdb_id || movie.imdb_id || movie.external_ids?.imdb_id;
-            if (!imdbId) {
-                const type = isSeries ? 'tv' : 'movie';
-                const d = await fetchTMDB(`/${type}/${movie.id}/external_ids`);
-                imdbId = d?.imdb_id;
-            }
-
-            const s = isSeries ? selectedSeason : 1;
-            const e = episodeNum;
-            const fullEpisodeTitle = `${movie.title || movie.name} - S${s}E${e} - ${episodeName}`;
-
-            // Try resolving Vidmody sources
-            const vidmodyParams = new URLSearchParams({
-                imdbId,
-                season: String(s),
-                episode: String(e)
-            });
-
-            let downloadUrl = null;
-            let audioTracksJson = null;
-            let vidmodySubtitles = [];
-            try {
-                const vidmodyRes = await fetch(`${SERVER_URL}/api/vidmody/resolve?${vidmodyParams}`);
-                if (vidmodyRes.ok) {
-                    const vidmodyData = await vidmodyRes.json();
-                    if (vidmodyData.success && vidmodyData.videos?.length > 0) {
-                        downloadUrl = buildVidmodyMasterUrl({
-                            workerUrl: WORKER_URL,
-                            videos: vidmodyData.videos,
-                            audios: vidmodyData.audios || [],
-                            subtitles: vidmodyData.subtitles || [],
-                            workingAudio: vidmodyData.workingAudio || 'a1',
-                            audioSwitchStrategy: vidmodyData.audioSwitchStrategy
-                        });
-                        vidmodySubtitles = vidmodyData.subtitles || [];
-                        // Always send audio tracks — Vidmody HLS is video-only, audio must be muxed
-                        if (vidmodyData.audios && vidmodyData.audios.length > 0) {
-                            audioTracksJson = JSON.stringify(vidmodyData.audios);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('[NativeDownload] Vidmody resolving failed:', err);
-            }
-
-            // Fallback: Try resolving StreamIMDb sources
-            if (!downloadUrl && imdbId) {
-                try {
-                    const streamimdbSource = await findStreamimdbSource(
-                        imdbId,
-                        'tv',
-                        s,
-                        e,
-                        { tmdbId: movie.id }
-                    );
-                    if (streamimdbSource?.url) {
-                        downloadUrl = streamimdbSource.url;
-                    }
-                } catch (err) {
-                    console.warn('[NativeDownload] StreamIMDb resolving failed:', err);
-                }
-            }
-
-            // Fetch subtitles
-            const subParams = new URLSearchParams({
-                imdb: imdbId || '',
-                season: String(s),
-                episode: String(e)
-            });
-            let subtitlesJson = null;
-            try {
-                const subRes = await fetch(`${SERVER_URL}/api/subtitles?${subParams}`);
-                let subs = [];
-                if (subRes.ok) {
-                    const data = await subRes.json();
-                    if (Array.isArray(data)) {
-                        subs = data;
-                    }
-                }
-
-                // Merge Vidmody subtitles
-                if (vidmodySubtitles && vidmodySubtitles.length > 0) {
-                    vidmodySubtitles.forEach(vSub => {
-                        if (vSub.url) {
-                            const exists = subs.some(s => s.lang === vSub.lang && s.label?.includes('Vidmody'));
-                            if (!exists) {
-                                subs.push({
-                                    lang: vSub.lang || 'tr',
-                                    label: `${vSub.name || 'Türkçe'} (Vidmody)`,
-                                    url: vSub.url
-                                });
-                            }
-                        }
-                    });
-                }
-
-                if (subs.length > 0) {
-                    subtitlesJson = JSON.stringify(subs);
-                }
-            } catch (err) {
-                console.warn('[NativeDownload] Failed to fetch subtitles:', err);
-            }
-
-            if (downloadUrl) {
-                bridge.downloadVideo(
-                    downloadUrl,
-                    fullEpisodeTitle,
-                    movie.poster_path || '',
-                    movie.backdrop_path || '',
-                    'tv',
-                    s,
-                    e,
-                    subtitlesJson,
-                    audioTracksJson
-                );
-                alert(`"${fullEpisodeTitle}" indirme kuyruğuna alındı! İndirilenler sekmesinden takip edebilirsiniz.`);
-            } else {
-                alert("Bu bölüm için şu an uygun bir indirme kaynağı bulunamadı.");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("İndirme başlatılırken beklenmedik bir hata oluştu.");
-        }
-    };
-
-    const handleNativeDownloadClick = async () => {
-        const bridge = window.NoxisAppBridge || window.AndroidBridge;
-        if (!bridge) {
-            alert("Bu özellik yalnızca Noxis Android mobil uygulamasında kullanılabilir.");
-            return;
-        }
-
-        setIsNativeDownloading(true);
-        try {
-            let imdbId = details?.imdb_id || movie.imdb_id || movie.external_ids?.imdb_id;
-            if (!imdbId) {
-                const type = isSeries ? 'tv' : 'movie';
-                const d = await fetchTMDB(`/${type}/${movie.id}/external_ids`);
-                imdbId = d?.imdb_id;
-            }
-
-            const s = isSeries ? selectedSeason : 1;
-            const e = 1; // Default to episode 1 for TV series on detail page quick download
-
-            // Try resolving Vidmody sources
-            const vidmodyParams = new URLSearchParams({
-                imdbId,
-                season: isSeries ? String(s) : '',
-                episode: isSeries ? String(e) : ''
-            });
-
-            let downloadUrl = null;
-            let audioTracksJson = null;
-            let vidmodySubtitles = [];
-            try {
-                const vidmodyRes = await fetch(`${SERVER_URL}/api/vidmody/resolve?${vidmodyParams}`);
-                if (vidmodyRes.ok) {
-                    const vidmodyData = await vidmodyRes.json();
-                    if (vidmodyData.success && vidmodyData.videos?.length > 0) {
-                        downloadUrl = buildVidmodyMasterUrl({
-                            workerUrl: WORKER_URL,
-                            videos: vidmodyData.videos,
-                            audios: vidmodyData.audios || [],
-                            subtitles: vidmodyData.subtitles || [],
-                            workingAudio: vidmodyData.workingAudio || 'a1',
-                            audioSwitchStrategy: vidmodyData.audioSwitchStrategy
-                        });
-                        vidmodySubtitles = vidmodyData.subtitles || [];
-                        // Always send audio tracks to Android, even if just 1 track
-                        // Vidmody HLS master playlists separate video and audio —
-                        // the video variant is video-only, audio MUST be muxed in
-                        if (vidmodyData.audios && vidmodyData.audios.length > 0) {
-                            audioTracksJson = JSON.stringify(vidmodyData.audios);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('[NativeDownload] Vidmody resolving failed:', err);
-            }
-
-            // Fallback: Try resolving StreamIMDb sources
-            if (!downloadUrl && imdbId) {
-                try {
-                    const streamimdbSource = await findStreamimdbSource(
-                        imdbId,
-                        isSeries ? 'tv' : 'movie',
-                        isSeries ? s : null,
-                        isSeries ? e : null,
-                        { tmdbId: movie.id }
-                    );
-                    if (streamimdbSource?.url) {
-                        downloadUrl = streamimdbSource.url;
-                    }
-                } catch (err) {
-                    console.warn('[NativeDownload] StreamIMDb resolving failed:', err);
-                }
-            }
-
-            // Fetch subtitles
-            const subParams = new URLSearchParams({
-                imdb: imdbId || '',
-                season: isSeries ? String(s) : '',
-                episode: isSeries ? String(e) : ''
-            });
-            let subtitlesJson = null;
-            try {
-                const subRes = await fetch(`${SERVER_URL}/api/subtitles?${subParams}`);
-                let subs = [];
-                if (subRes.ok) {
-                    const data = await subRes.json();
-                    if (Array.isArray(data)) {
-                        subs = data;
-                    }
-                }
-
-                // Merge Vidmody subtitles
-                if (vidmodySubtitles && vidmodySubtitles.length > 0) {
-                    vidmodySubtitles.forEach(vSub => {
-                        if (vSub.url) {
-                            const exists = subs.some(s => s.lang === vSub.lang && s.label?.includes('Vidmody'));
-                            if (!exists) {
-                                subs.push({
-                                    lang: vSub.lang || 'tr',
-                                    label: `${vSub.name || 'Türkçe'} (Vidmody)`,
-                                    url: vSub.url
-                                });
-                            }
-                        }
-                    });
-                }
-
-                if (subs.length > 0) {
-                    subtitlesJson = JSON.stringify(subs);
-                }
-            } catch (err) {
-                console.warn('[NativeDownload] Failed to fetch subtitles:', err);
-            }
-
-            if (downloadUrl) {
-                bridge.downloadVideo(
-                    downloadUrl,
-                    movie.title || movie.name,
-                    movie.poster_path || '',
-                    movie.backdrop_path || '',
-                    isSeries ? 'tv' : 'movie',
-                    isSeries ? s : 0,
-                    isSeries ? e : 0,
-                    subtitlesJson,
-                    audioTracksJson
-                );
-                alert(`"${movie.title || movie.name}" indirme kuyruğuna alındı! İndirilenler sekmesinden takip edebilirsiniz.`);
-            } else {
-                alert("Bu içerik için şu an uygun bir indirme kaynağı bulunamadı.");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("İndirme başlatılırken beklenmedik bir hata oluştu.");
-        } finally {
-            setIsNativeDownloading(false);
-        }
-    };
+    }, [streamimdbEmbedFallbackUrl]);
 
     const handleScroll = (ref, direction) => {
         if (ref.current) {
@@ -933,6 +752,9 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
         }
     };
 
+    const [r, g, b] = dominantColor;
+    console.log("[DetailModal] dominantColor extracted:", dominantColor);
+
     return (
         <motion.div
             className="detail-view-container"
@@ -940,6 +762,10 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '30%' }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            style={{
+                backgroundImage: `radial-gradient(circle at 15% 30%, rgba(${r}, ${g}, ${b}, 0.48) 0%, transparent 65%), radial-gradient(circle at 85% 75%, rgba(${r}, ${g}, ${b}, 0.32) 0%, transparent 60%), radial-gradient(circle at 50% 50%, rgba(${r}, ${g}, ${b}, 0.18) 0%, transparent 50%)`,
+                backgroundColor: '#070709'
+            }}
         >
             <div className="detail-hero-wrapper">
                 <SmartImage
@@ -949,7 +775,12 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                 />
             </div>
 
-            <div className="detail-content-layer">
+            <div 
+                className="detail-content-layer"
+                style={{
+                    background: `linear-gradient(to bottom, transparent 0%, rgba(7, 7, 9, 0.15) 15%, rgba(7, 7, 9, 0.45) 45%, rgba(7, 7, 9, 0.72) 75%, rgba(7, 7, 9, 0.85) 100%)`
+                }}
+            >
                 <button
                     tabIndex="0"
                     onClick={onClose}
@@ -1046,25 +877,23 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                 <span>Fragman</span>
                             </button>
                         )}
-                        {(window.NoxisAppBridge || window.AndroidBridge) && (
-                            <button
-                                tabIndex="0"
-                                onClick={handleNativeDownloadClick}
-                                disabled={isNativeDownloading}
-                                className="focusable glass-button"
-                                style={{
-                                    border: '1px dashed rgba(165, 109, 255, 0.6)',
-                                    background: isNativeDownloading ? 'rgba(165, 109, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)',
-                                    color: '#b180ff',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                <i className={isNativeDownloading ? "fas fa-spinner fa-spin" : "fas fa-download"}></i>
-                                <span>{isNativeDownloading ? 'Hazırlanıyor...' : 'İndir'}</span>
-                            </button>
-                        )}
+                        <button
+                            tabIndex="0"
+                            onClick={handleDownloadMovie}
+                            className="focusable glass-button download-btn"
+                            disabled={downloadingId !== null}
+                            style={{
+                                border: '1px solid rgba(191, 90, 242, 0.4)',
+                                background: downloadingId === 'movie' ? 'rgba(191, 90, 242, 0.25)' : 'var(--liquid-glass-bg)'
+                            }}
+                        >
+                            {downloadingId === 'movie' ? (
+                                <i className="fas fa-spinner fa-spin" style={{ color: '#bf5af2' }}></i>
+                            ) : (
+                                <i className="fas fa-download" style={{ color: '#bf5af2' }}></i>
+                            )}
+                            <span>{downloadingId === 'movie' ? 'Hazırlanıyor...' : 'Cihaza İndir'}</span>
+                        </button>
                     </motion.div>
 
                     {isSeries && (
@@ -1112,37 +941,6 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                                 </div>
                                             )}
                                             <div style={{ aspectRatio: '16/9', position: 'relative' }}>
-                                                {(window.NoxisAppBridge || window.AndroidBridge) && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleEpisodeNativeDownloadClick(ep.episode_number, ep.name);
-                                                        }}
-                                                        className="focusable"
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: '8px',
-                                                            right: '8px',
-                                                            width: '32px',
-                                                            height: '32px',
-                                                            borderRadius: '50%',
-                                                            background: 'rgba(0,0,0,0.65)',
-                                                            border: '1px solid rgba(255,255,255,0.2)',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            backdropFilter: 'blur(10px)',
-                                                            color: '#AB7CFA',
-                                                            cursor: 'pointer',
-                                                            boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
-                                                            transition: 'all 0.2s',
-                                                            zIndex: 3
-                                                        }}
-                                                        title="Bölümü İndir"
-                                                    >
-                                                        <i className="fas fa-download" style={{ fontSize: '11px' }}></i>
-                                                    </button>
-                                                )}
                                                 <button
                                                     onClick={() => onPlay(movie, selectedSeason, ep.episode_number)}
                                                     className="focusable"
@@ -1174,6 +972,41 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                                         </div>
                                                     </div>
                                                 </button>
+
+                                                <button
+                                                     onClick={(e) => {
+                                                         e.stopPropagation();
+                                                         handleDownloadEpisode(ep.episode_number);
+                                                     }}
+                                                     className="focusable episode-download-btn"
+                                                     disabled={downloadingId !== null}
+                                                     style={{
+                                                         position: 'absolute',
+                                                         top: '8px',
+                                                         right: '8px',
+                                                         width: '32px',
+                                                         height: '32px',
+                                                         borderRadius: '50%',
+                                                         background: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'rgba(191, 90, 242, 0.35)' : 'rgba(0, 0, 0, 0.6)',
+                                                         backdropFilter: 'blur(10px)',
+                                                         WebkitBackdropFilter: 'blur(10px)',
+                                                         border: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '1px solid #bf5af2' : '1px solid rgba(255, 255, 255, 0.2)',
+                                                         color: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '#bf5af2' : 'white',
+                                                         display: 'flex',
+                                                         alignItems: 'center',
+                                                         justifyContent: 'center',
+                                                         zIndex: 5,
+                                                         cursor: 'pointer',
+                                                         transition: 'all 0.2s ease'
+                                                     }}
+                                                     title="Bölümü Cihaza İndir"
+                                                 >
+                                                     {downloadingId === `s${selectedSeason}e${ep.episode_number}` ? (
+                                                         <i className="fas fa-spinner fa-spin" style={{ fontSize: '12px' }}></i>
+                                                     ) : (
+                                                         <i className="fas fa-download" style={{ fontSize: '12px' }}></i>
+                                                     )}
+                                                 </button>
 
                                                 <div style={{
                                                     position: 'absolute',
@@ -1628,12 +1461,6 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         let cancelled = false;
 
         const loadEpisodeData = async () => {
-            if (movie.isLocal) {
-                setEpisodeTitle(initialEpisode ? `Bölüm ${initialEpisode}` : null);
-                setNextEpisodeInfo(null);
-                return;
-            }
-
             if (!isSeries || !initialSeason || !initialEpisode) {
                 setEpisodeTitle(null);
                 setNextEpisodeInfo(null);
@@ -1668,34 +1495,51 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         return () => {
             cancelled = true;
         };
-    }, [movie.id, movie.isLocal, isSeries, initialSeason, initialEpisode]);
+    }, [movie.id, isSeries, initialSeason, initialEpisode]);
 
     // Main source resolution - Sequential fallback
     useEffect(() => {
         let cancelled = false;
 
         const resolveSources = async () => {
-            if (movie.isLocal) {
-                setLoading(true);
-                try {
-                    const infoRes = await fetch(`https://noxis.tech/local-video/${movie.id}/video.info.json`);
-                    if (infoRes.ok && !cancelled) {
-                        const infoData = await infoRes.json();
-                        if (infoData.subtitles) {
-                            setSubtitles(infoData.subtitles);
+            setLoading(true);
+
+            if (movie.isOffline && movie.localUrl) {
+                if (!cancelled) {
+                    const fetchOfflineMetadata = async () => {
+                        let localSubs = [];
+                        try {
+                            const metadataUrl = movie.localUrl.replace('video.mp4', 'video.info.json');
+                            console.log("[Offline Player] Yerel metadata okunuyor:", metadataUrl);
+                            const response = await fetch(metadataUrl);
+                            if (response.ok) {
+                                const metadata = await response.json();
+                                if (metadata && Array.isArray(metadata.subtitles)) {
+                                    localSubs = metadata.subtitles.map(s => ({
+                                        lang: s.lang,
+                                        label: s.label || s.lang,
+                                        url: s.url
+                                    }));
+                                    console.log("[Offline Player] Yerel altyazılar yüklendi:", localSubs);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn("[Offline Player] Yerel video.info.json okunamadı, altyazısız devam ediliyor:", e);
                         }
-                        if (infoData.audioTracks) {
-                            setVidmodyAudios(infoData.audioTracks);
+                        
+                        if (!cancelled) {
+                            applyResolvedSource('vidmody', {
+                                url: movie.localUrl,
+                                subtitles: localSubs
+                            });
+                            setLoading(false);
                         }
-                    }
-                } catch (e) {
-                    console.warn('[Player] Failed to load offline meta:', e);
+                    };
+                    fetchOfflineMetadata();
                 }
-                setLoading(false);
                 return;
             }
 
-            setLoading(true);
             let imdbId = movie.imdb_id || movie.external_ids?.imdb_id || null;
 
             if (imdbId && !cancelled) {
@@ -2135,8 +1979,8 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         }
     }, [currentSource, streamimdbEmbedUrl]);
 
-    const hasSource = movie.isLocal || vidmodyUrl || streamimdbUrl || diziyouUrl || dizigomUrl || dizimomUrl || m3uUrl;
-    const currentStreamUrl = movie.isLocal ? movie.localUrl : (vidmodyUrl || streamimdbUrl || diziyouUrl || dizigomUrl || dizimomUrl || m3uUrl);
+    const hasSource = vidmodyUrl || streamimdbUrl || diziyouUrl || dizigomUrl || dizimomUrl || m3uUrl;
+    const currentStreamUrl = vidmodyUrl || streamimdbUrl || diziyouUrl || dizigomUrl || dizimomUrl || m3uUrl;
     const mediaType = movie.media_type || (isSeries ? 'tv' : 'movie');
     const shouldShowStreamimdbEmbed = currentSource === 'streamimdb' && useStreamimdbEmbedFallback && streamimdbEmbedUrl;
 
