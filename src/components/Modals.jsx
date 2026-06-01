@@ -107,7 +107,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     }, [movie]);
 
     const [showMagnetPlayer, setShowMagnetPlayer] = useState(false);
-    const [streamUrl, setStreamUrl] = useState('');
+        const [streamUrl, setStreamUrl] = useState('');
     const [subtitles, setSubtitles] = useState([]);
     const [magnetLoading, setMagnetLoading] = useState(false);
     const [magnetError, setMagnetError] = useState(null);
@@ -115,6 +115,13 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     const isDownloadingRef = useRef(false);
     const downloadingEpisodeRef = useRef(1);
     const [downloadingId, setDownloadingId] = useState(null);
+
+    // Noxis Premium Quality and Network settings states
+    const [showQualitySelector, setShowQualitySelector] = useState(false);
+    const [pendingDownloadType, setPendingDownloadType] = useState(null); // 'movie' or 'episode'
+    const [pendingEpisodeNum, setPendingEpisodeNum] = useState(null);
+    const [selectedQuality, setSelectedQuality] = useState('HD');
+    const [wifiOnlySetting, setWifiOnlySetting] = useState(false);
 
     // Intercept resolved streamUrl for offline download
     useEffect(() => {
@@ -126,7 +133,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             
             console.log("[DetailModal] Intercepted streamUrl for download:", streamUrl);
             
-            // Trigger native bridge download with rich metadata
+            // Trigger native bridge download with rich metadata & customized quality/Wi-Fi preferences
             downloadNoxisMovie(
                 streamUrl, 
                 title, 
@@ -134,7 +141,11 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                 movie.backdrop_path || null, 
                 movie.media_type || (isSeries ? 'tv' : 'movie'), 
                 isSeries ? selectedSeason : null, 
-                isSeries ? epNum : null
+                isSeries ? epNum : null,
+                JSON.stringify(subtitles),
+                JSON.stringify(vidmodyAudioTracks || diziyouAudioTracks || dizimomAudioTracks || null),
+                selectedQuality,
+                wifiOnlySetting
             );
             
             // Instantly clean up to prevent player overlay
@@ -146,7 +157,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             setMagnetError("İndirme Başlatıldı!");
             setTimeout(() => setMagnetError(null), 3000);
         }
-    }, [streamUrl, isSeries, selectedSeason, movie.title, movie.name]);
+    }, [streamUrl, isSeries, selectedSeason, movie.title, movie.name, subtitles, vidmodyAudioTracks, diziyouAudioTracks, dizimomAudioTracks, selectedQuality, wifiOnlySetting]);
 
     // Handle failure to resolve download source
     useEffect(() => {
@@ -158,19 +169,32 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
     }, [magnetLoading, streamUrl, magnetError]);
 
     const handleDownloadMovie = () => {
-        isDownloadingRef.current = true;
-        downloadingEpisodeRef.current = 1;
-        setDownloadingId('movie');
-        // Resolves movie (Vidmody/StreamIMDb fallback)
-        handleVidmodyWatch(null, null);
+        setPendingDownloadType('movie');
+        setPendingEpisodeNum(null);
+        setShowQualitySelector(true);
     };
 
     const handleDownloadEpisode = (episodeNum) => {
+        setPendingDownloadType('episode');
+        setPendingEpisodeNum(episodeNum);
+        setShowQualitySelector(true);
+    };
+
+    const confirmDownload = () => {
+        setShowQualitySelector(false);
         isDownloadingRef.current = true;
-        downloadingEpisodeRef.current = episodeNum;
-        setDownloadingId(`s${selectedSeason}e${episodeNum}`);
-        // Resolves episode (Vidmody/StreamIMDb fallback)
-        handleVidmodyWatch(selectedSeason, episodeNum);
+        
+        if (pendingDownloadType === 'movie') {
+            downloadingEpisodeRef.current = 1;
+            setDownloadingId('movie');
+            // Resolves movie (Vidmody/StreamIMDb fallback)
+            handleVidmodyWatch(null, null);
+        } else if (pendingDownloadType === 'episode') {
+            downloadingEpisodeRef.current = pendingEpisodeNum;
+            setDownloadingId(`s${selectedSeason}e${pendingEpisodeNum}`);
+            // Resolves episode (Vidmody/StreamIMDb fallback)
+            handleVidmodyWatch(selectedSeason, pendingEpisodeNum);
+        }
     };
     const [torrentOptions, setTorrentOptions] = useState([]);
     const [showTorrentPicker, setShowTorrentPicker] = useState(false);
@@ -1367,6 +1391,184 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                         </motion.div>
                     </motion.div>
                 )}
+                {showQualitySelector && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(0, 0, 0, 0.75)',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 11000,
+                            padding: '16px'
+                        }}
+                        onClick={() => setShowQualitySelector(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20, opacity: 0 }}
+                            animate={{ scale: 1, y: 0, opacity: 1 }}
+                            exit={{ scale: 0.9, y: 20, opacity: 0 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 220 }}
+                            style={{
+                                width: '100%',
+                                maxWidth: '380px',
+                                background: '#100921',
+                                border: '1px solid rgba(157, 84, 255, 0.3)',
+                                borderRadius: '20px',
+                                boxShadow: '0 8px 32px rgba(157, 84, 255, 0.15)',
+                                padding: '24px',
+                                color: 'white',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '20px'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚡</div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '0.5px' }}>Noxis Akıllı İndirme</h3>
+                                <p style={{ fontSize: '12px', color: '#AFA7C1', marginTop: '4px' }}>
+                                    Lütfen çevrimdışı oynatma için indirme kalitesini ve ağ ayarlarını yapılandırın.
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#9D54FF', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Görüntü Kalitesi
+                                </label>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedQuality('HD')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px',
+                                            borderRadius: '12px',
+                                            background: selectedQuality === 'HD' ? 'linear-gradient(135deg, #9D54FF 0%, #6F3ACC 100%)' : '#1E162D',
+                                            border: selectedQuality === 'HD' ? '1px solid #9D54FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                                            color: 'white',
+                                            fontWeight: '700',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: selectedQuality === 'HD' ? '0 4px 12px rgba(157, 84, 255, 0.3)' : 'none'
+                                        }}
+                                    >
+                                        Noxis Premium (HD)
+                                        <span style={{ display: 'block', fontSize: '10px', fontWeight: '400', opacity: 0.8, marginTop: '2px' }}>
+                                            En yüksek detay (1080p)
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedQuality('SD')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '12px',
+                                            borderRadius: '12px',
+                                            background: selectedQuality === 'SD' ? 'linear-gradient(135deg, #9D54FF 0%, #6F3ACC 100%)' : '#1E162D',
+                                            border: selectedQuality === 'SD' ? '1px solid #9D54FF' : '1px solid rgba(255, 255, 255, 0.08)',
+                                            color: 'white',
+                                            fontWeight: '700',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: selectedQuality === 'SD' ? '0 4px 12px rgba(157, 84, 255, 0.3)' : 'none'
+                                        }}
+                                    >
+                                        Noxis Hızlı (SD)
+                                        <span style={{ display: 'block', fontSize: '10px', fontWeight: '400', opacity: 0.8, marginTop: '2px' }}>
+                                            Kota dostu (480p)
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between',
+                                background: '#170F26',
+                                padding: '12px 16px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 255, 255, 0.05)'
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: '13px', fontWeight: '700' }}>Sadece Wi-Fi ile İndir</div>
+                                    <div style={{ fontSize: '10px', color: '#AFA7C1', marginTop: '2px' }}>Hücresel veride indirmeyi bekletir.</div>
+                                </div>
+                                <div 
+                                    onClick={() => setWifiOnlySetting(!wifiOnlySetting)}
+                                    style={{
+                                        width: '40px',
+                                        height: '24px',
+                                        borderRadius: '12px',
+                                        background: wifiOnlySetting ? '#9D54FF' : '#23143D',
+                                        border: wifiOnlySetting ? '1px solid #9D54FF' : '1px solid #331A54',
+                                        position: 'relative',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '50%',
+                                        background: 'white',
+                                        position: 'absolute',
+                                        top: '3px',
+                                        left: wifiOnlySetting ? '19px' : '3px',
+                                        transition: 'all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+                                    }} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowQualitySelector(false)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        background: 'transparent',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        color: '#AFA7C1',
+                                        fontWeight: '700',
+                                        fontSize: '13px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    İptal Et
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmDownload}
+                                    style={{
+                                        flex: 2,
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        background: 'linear-gradient(90deg, #9D54FF 0%, #6F3ACC 100%)',
+                                        border: 0,
+                                        color: 'white',
+                                        fontWeight: '700',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 16px rgba(157, 84, 255, 0.4)'
+                                    }}
+                                >
+                                    İndirmeyi Başlat
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
             </AnimatePresence>
         </motion.div>
     );
@@ -1504,7 +1706,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         const resolveSources = async () => {
             setLoading(true);
 
-            if (movie.isOffline && movie.localUrl) {
+            if ((movie.isOffline || movie.isLocal) && movie.localUrl) {
                 if (!cancelled) {
                     const fetchOfflineMetadata = async () => {
                         let localSubs = [];

@@ -10,22 +10,33 @@ export const isAppBridgeAvailable = () => {
  * @param {string} videoUrl - İndirmek istediğiniz videonun doğrudan MP4/MKV bağlantısı
  * @param {string} videoTitle - Film veya videonun başlığı
  */
-export const downloadNoxisMovie = (videoUrl, videoTitle, posterPath = null, backdropPath = null, mediaType = null, season = null, episode = null) => {
+export const downloadNoxisMovie = (videoUrl, videoTitle, posterPath = null, backdropPath = null, mediaType = null, season = null, episode = null, subtitlesJson = null, audioTracksJson = null, quality = 'HD', wifiOnly = false) => {
     if (!videoUrl) {
         console.error("[AppBridge] Video URL is empty");
         return false;
     }
     
-    console.log("[AppBridge] startDownload triggered for:", videoTitle, videoUrl, posterPath, backdropPath, mediaType, season, episode);
+    console.log("[AppBridge] startDownload triggered for:", videoTitle, videoUrl, posterPath, backdropPath, mediaType, season, episode, "quality:", quality, "wifiOnly:", wifiOnly);
 
     const s = season ? parseInt(season, 10) : 0;
     const e = episode ? parseInt(episode, 10) : 0;
 
     if (window.NoxisAppBridge && typeof window.NoxisAppBridge.startDownload === 'function') {
-        window.NoxisAppBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e);
+        try {
+            // Call the fully equipped native downloader bridge
+            window.NoxisAppBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e, subtitlesJson, audioTracksJson, quality, wifiOnly);
+        } catch (err) {
+            console.warn("[AppBridge] Fallback to legacy startDownload due to signature mismatch:", err);
+            window.NoxisAppBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e);
+        }
         return true;
     } else if (window.AndroidBridge && typeof window.AndroidBridge.startDownload === 'function') {
-        window.AndroidBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e);
+        try {
+            window.AndroidBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e, subtitlesJson, audioTracksJson, quality, wifiOnly);
+        } catch (err) {
+            console.warn("[AppBridge] Fallback to legacy startDownload for AndroidBridge:", err);
+            window.AndroidBridge.startDownload(videoUrl, videoTitle, posterPath, backdropPath, mediaType, s, e);
+        }
         return true;
     } else {
         // Fallback for browser

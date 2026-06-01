@@ -2000,6 +2000,20 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
     }, [party, imdbId, season, episode, movieTitle, poster, backdrop, tmdbId, mediaType, onNextEpisode, nextEpisodeInfo, isDraggingProgress]);
 
     const handlePlaybackEnded = useCallback(() => {
+        // Trigger Smart Downloads bridge call when offline episode completes
+        if (streamUrl && (streamUrl.includes('/local-video/') || streamUrl.startsWith('https://noxis.tech/local-video/'))) {
+            const match = streamUrl.match(/\/local-video\/(\d+)/);
+            const taskId = match ? match[1] : null;
+            if (taskId) {
+                console.log("[GlassPlayer] Offline video playback ended. Triggering onEpisodeFinished for task:", taskId);
+                if (window.NoxisAppBridge && typeof window.NoxisAppBridge.onEpisodeFinished === 'function') {
+                    window.NoxisAppBridge.onEpisodeFinished(taskId);
+                } else if (window.AndroidBridge && typeof window.AndroidBridge.onEpisodeFinished === 'function') {
+                    window.AndroidBridge.onEpisodeFinished(taskId);
+                }
+            }
+        }
+
         if (onNextEpisode && nextEpisodeInfo && mediaType === 'tv') {
             setShowControls(true);
             setShowNextEpisode(true);
@@ -2007,7 +2021,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
             return;
         }
         onClose();
-    }, [onClose, onNextEpisode, nextEpisodeInfo, mediaType]);
+    }, [onClose, onNextEpisode, nextEpisodeInfo, mediaType, streamUrl]);
 
     // PERFORMANCE: 250ms throttle = saniyede max 4 çağrı (60fps yerine)
     const onTimeUpdate = useThrottledCallback(onTimeUpdateCore, 250, [onTimeUpdateCore]);
