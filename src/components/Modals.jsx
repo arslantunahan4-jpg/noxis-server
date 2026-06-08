@@ -430,68 +430,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
 
             if (overallController.signal.aborted) throw new Error("Zaman aşımı");
 
-            // ===== STEP 2: Try StreamIMDb via Backend API =====
-            if (imdbId) {
-                const streamimdbController = new AbortController();
-                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
-
-                try {
-                    const streamimdbSource = await findStreamimdbSource(
-                        imdbId,
-                        isSeries ? 'tv' : 'movie',
-                        isSeries ? s : null,
-                        isSeries ? e : null,
-                        { signal: streamimdbController.signal, tmdbId: movie.id }
-                    );
-
-                    if (streamimdbSource?.url) {
-                        const sourceSubtitles = normalizeSourceSubtitles(streamimdbSource.subtitles || [], 'StreamIMDb');
-
-                        try {
-                            const subParams = new URLSearchParams({
-                                imdb: imdbId,
-                                season: isSeries ? s : '',
-                                episode: isSeries ? e : '',
-                                source: 'streamimdb'
-                            });
-                            const subRes = await fetchWithTimeout(`${SERVER_URL}/api/subtitles?${subParams}`, {}, 6000);
-                            if (subRes) {
-                                const subData = await subRes.json();
-                                if (Array.isArray(subData) && subData.length > 0) {
-                                    setSubtitles(mergeSubtitleLists(
-                                        sourceSubtitles,
-                                        normalizeExternalSubtitles(subData)
-                                    ));
-                                } else {
-                                    setSubtitles(sourceSubtitles);
-                                }
-                            } else {
-                                setSubtitles(sourceSubtitles);
-                            }
-                        } catch (subErr) {
-                            setSubtitles(sourceSubtitles);
-                        }
-
-                        setVidmodyAudioTracks(null);
-                        setDiziyouAudioTracks(null);
-                        setDizimomAudioTracks(null);
-                        setStreamimdbEmbedFallbackUrl(streamimdbSource.wrapperUrl || streamimdbSource.embedUrl || null);
-                        setUseStreamimdbEmbedFallback(false);
-                        setStreamUrl(streamimdbSource.url);
-                        setShowMagnetPlayer(true);
-                        setMagnetLoading(false);
-                        return;
-                    }
-                } catch (streamimdbErr) {
-                    console.warn('[StreamIMDb] Failed or timed out:', streamimdbErr.message);
-                } finally {
-                    clearTimeout(streamimdbTimeout);
-                }
-            }
-
-            if (overallController.signal.aborted) throw new Error("Zaman aşımı");
-
-            // ===== STEP 3: Try Diziyou (series only) =====
+            // ===== STEP 2: Try Diziyou (series only) =====
             if (overallController.signal.aborted) throw new Error("Zaman aşımı");
             setMagnetError("Kaynak aranıyor...");
 
@@ -550,6 +489,67 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     }
                 } catch (diziErr) {
                     console.warn('[Diziyou] Failed or timed out:', diziErr.message);
+                }
+            }
+
+            if (overallController.signal.aborted) throw new Error("Zaman aşımı");
+
+            // ===== STEP 3: Try StreamIMDb via Backend API =====
+            if (imdbId) {
+                const streamimdbController = new AbortController();
+                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
+
+                try {
+                    const streamimdbSource = await findStreamimdbSource(
+                        imdbId,
+                        isSeries ? 'tv' : 'movie',
+                        isSeries ? s : null,
+                        isSeries ? e : null,
+                        { signal: streamimdbController.signal, tmdbId: movie.id }
+                    );
+
+                    if (streamimdbSource?.url) {
+                        const sourceSubtitles = normalizeSourceSubtitles(streamimdbSource.subtitles || [], 'StreamIMDb');
+
+                        try {
+                            const subParams = new URLSearchParams({
+                                imdb: imdbId,
+                                season: isSeries ? s : '',
+                                episode: isSeries ? e : '',
+                                source: 'streamimdb'
+                            });
+                            const subRes = await fetchWithTimeout(`${SERVER_URL}/api/subtitles?${subParams}`, {}, 6000);
+                            if (subRes) {
+                                const subData = await subRes.json();
+                                if (Array.isArray(subData) && subData.length > 0) {
+                                    setSubtitles(mergeSubtitleLists(
+                                        sourceSubtitles,
+                                        normalizeExternalSubtitles(subData)
+                                    ));
+                                } else {
+                                    setSubtitles(sourceSubtitles);
+                                }
+                            } else {
+                                setSubtitles(sourceSubtitles);
+                            }
+                        } catch (subErr) {
+                            setSubtitles(sourceSubtitles);
+                        }
+
+                        setVidmodyAudioTracks(null);
+                        setDiziyouAudioTracks(null);
+                        setDizimomAudioTracks(null);
+                        setStreamimdbEmbedFallbackUrl(streamimdbSource.wrapperUrl || streamimdbSource.embedUrl || null);
+                        setUseStreamimdbEmbedFallback(false);
+                        setStreamUrl(streamimdbSource.url);
+                        setShowMagnetPlayer(true);
+                        setMagnetLoading(false);
+                        return;
+                    }
+                } catch (streamimdbErr) {
+                    console.warn('[StreamIMDb] Failed or timed out:', streamimdbErr.message);
+                } finally {
+                    clearTimeout(streamimdbTimeout);
                 }
             }
 
@@ -1861,7 +1861,71 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
 
             if (cancelled) return;
 
-            // Step 2: Try StreamIMDb via Backend API
+            // Step 2: Try Diziyou (series only, 10s timeout)
+            if (isSeries && !diziyouAttempted.current && !cancelled) {
+                diziyouAttempted.current = true;
+
+                try {
+                    const diziyouPromise = findDiziyouSource(movie.name || movie.title, initialSeason, initialEpisode, movie.original_name || movie.original_title);
+                    const diziyouTimeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 10000));
+                    const sources = await Promise.race([diziyouPromise, diziyouTimeoutPromise]);
+
+                    const availableUrl = sources?.original || sources?.turkish_dub;
+
+                    if (sources && availableUrl && !cancelled) {
+                        const url = sources.original || sources.turkish_dub;
+
+                        const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Diziyou');
+                        try {
+                            const subParams = new URLSearchParams({
+                                imdb: imdbId || '',
+                                season: initialSeason,
+                                episode: initialEpisode
+                            });
+                            const subRes = await fetchWithTimeout(`${SERVER_URL}/api/subtitles?${subParams}`, {}, 6000);
+                            if (subRes) {
+                                const subData = await subRes.json();
+                                if (Array.isArray(subData) && subData.length > 0) {
+                                    applyResolvedSource('diziyou', {
+                                        url,
+                                        subtitles: mergeSubtitleLists(
+                                            sourceSubtitles,
+                                            normalizeExternalSubtitles(subData)
+                                        ),
+                                        diziyouData: sources
+                                    });
+                                } else {
+                                    applyResolvedSource('diziyou', {
+                                        url,
+                                        subtitles: sourceSubtitles,
+                                        diziyouData: sources
+                                    });
+                                }
+                            } else {
+                                applyResolvedSource('diziyou', {
+                                    url,
+                                    subtitles: sourceSubtitles,
+                                    diziyouData: sources
+                                });
+                            }
+                        } catch (subErr) {
+                            applyResolvedSource('diziyou', {
+                                url,
+                                subtitles: sourceSubtitles,
+                                diziyouData: sources
+                            });
+                        }
+                        setLoading(false);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('[Player] Diziyou failed or timed out');
+                }
+            }
+
+            if (cancelled) return;
+
+            // Step 3: Try StreamIMDb via Backend API
             if (imdbId && !cancelled) {
                 const streamimdbController = new AbortController();
                 const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
@@ -1925,70 +1989,6 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                     console.warn('[Player] StreamIMDb failed or timed out');
                 } finally {
                     clearTimeout(streamimdbTimeout);
-                }
-            }
-
-            if (cancelled) return;
-
-            // Step 3: Try Diziyou (series only, 10s timeout)
-            if (isSeries && !diziyouAttempted.current) {
-                diziyouAttempted.current = true;
-
-                try {
-                    const diziyouPromise = findDiziyouSource(movie.name || movie.title, initialSeason, initialEpisode, movie.original_name || movie.original_title);
-                    const diziyouTimeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 10000));
-                    const sources = await Promise.race([diziyouPromise, diziyouTimeoutPromise]);
-
-                    const availableUrl = sources?.original || sources?.turkish_dub;
-
-                    if (sources && availableUrl && !cancelled) {
-                        const url = sources.original || sources.turkish_dub;
-
-                        const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Diziyou');
-                        try {
-                            const subParams = new URLSearchParams({
-                                imdb: imdbId || '',
-                                season: initialSeason,
-                                episode: initialEpisode
-                            });
-                            const subRes = await fetchWithTimeout(`${SERVER_URL}/api/subtitles?${subParams}`, {}, 6000);
-                            if (subRes) {
-                                const subData = await subRes.json();
-                                if (Array.isArray(subData) && subData.length > 0) {
-                                    applyResolvedSource('diziyou', {
-                                        url,
-                                        subtitles: mergeSubtitleLists(
-                                            sourceSubtitles,
-                                            normalizeExternalSubtitles(subData)
-                                        ),
-                                        diziyouData: sources
-                                    });
-                                } else {
-                                    applyResolvedSource('diziyou', {
-                                        url,
-                                        subtitles: sourceSubtitles,
-                                        diziyouData: sources
-                                    });
-                                }
-                            } else {
-                                applyResolvedSource('diziyou', {
-                                    url,
-                                    subtitles: sourceSubtitles,
-                                    diziyouData: sources
-                                });
-                            }
-                        } catch (subErr) {
-                            applyResolvedSource('diziyou', {
-                                url,
-                                subtitles: sourceSubtitles,
-                                diziyouData: sources
-                            });
-                        }
-                        setLoading(false);
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('[Player] Diziyou failed or timed out');
                 }
             }
 

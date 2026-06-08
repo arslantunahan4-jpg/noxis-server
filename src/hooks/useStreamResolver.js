@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchTMDB } from './useAppLogic';
 import { findInM3U } from '../services/m3uService';
 import { findStreamimdbSource } from '../services/streamimdbScraper';
+import { findDiziyouSource } from '../services/diziyouScraper';
 import { buildVidmodyMasterUrl } from '../utils/vidmody';
 import { mergeSubtitleLists, normalizeExternalSubtitles, normalizeSourceSubtitles } from '../utils/subtitles';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
@@ -40,6 +41,7 @@ export const useStreamResolver = (tmdbId, type, season = 1, episode = 1) => {
             const detail = await fetchTMDB(`/${type}/${tmdbId}`);
             if (detail?.imdb_id) imdbId = detail.imdb_id;
             movieTitle = detail?.title || detail?.name;
+            const originalTitle = detail?.original_title || detail?.original_name;
 
             if (!imdbId) {
                 const data = await fetchTMDB(`/${type}/${tmdbId}/external_ids`);
@@ -98,6 +100,59 @@ export const useStreamResolver = (tmdbId, type, season = 1, episode = 1) => {
 
                 setLoading(false);
                 return;
+            }
+
+            // ===== STEP 2: Try Diziyou (series only) =====
+            if (isSeries) {
+                try {
+                    const diziyouSources = await findDiziyouSource(movieTitle, season, episode, originalTitle);
+                    const videoUrl = diziyouSources?.original || diziyouSources?.turkish_dub;
+
+                    if (diziyouSources && videoUrl) {
+                        const sourceSubtitles = normalizeSourceSubtitles(diziyouSources.subtitles || [], 'Diziyou');
+
+                        setStreamUrl(videoUrl);
+                        setVideos([{ resolution: 'auto', url: videoUrl }]);
+
+                        if (diziyouSources.hasOriginal && diziyouSources.hasDub) {
+                            setAudios([
+                                { id: 'original', label: 'İngilizce (Orijinal)', url: diziyouSources.original },
+                                { id: 'dub', label: 'Türkçe Dublaj', url: diziyouSources.turkish_dub }
+                            ]);
+                            setWorkingAudio(videoUrl === diziyouSources.turkish_dub ? 'dub' : 'original');
+                            setAudioSwitchStrategy('hls-track');
+                        } else {
+                            setAudios([]);
+                            setWorkingAudio(null);
+                            setAudioSwitchStrategy('none');
+                        }
+
+                        try {
+                            const subParams = new URLSearchParams({
+                                imdb: imdbId,
+                                season: season.toString(),
+                                episode: episode.toString()
+                            });
+                            const subRes = await fetch(`${SERVER_URL}/api/subtitles?${subParams}`);
+                            const subData = await subRes.json();
+                            if (Array.isArray(subData) && subData.length > 0) {
+                                setSubtitles(mergeSubtitleLists(
+                                    sourceSubtitles,
+                                    normalizeExternalSubtitles(subData)
+                                ));
+                            } else {
+                                setSubtitles(sourceSubtitles);
+                            }
+                        } catch (e) {
+                            setSubtitles(sourceSubtitles);
+                        }
+
+                        setLoading(false);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('[Resolver] Diziyou failed:', e);
+                }
             }
 
             const streamimdbSource = await findStreamimdbSource(
