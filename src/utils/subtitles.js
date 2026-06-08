@@ -89,17 +89,21 @@ const sortSubtitleCandidates = (subtitles = []) => subtitles
 export const getSubtitleMenuLabel = (subtitle = {}, fallbackProvider = '') => {
     const langLabel = getFallbackLabel(subtitle.lang || subtitle.language || subtitle.srcLang);
     const provider = inferSubtitleProvider(subtitle, fallbackProvider);
-    const providerLabel = PROVIDER_LABELS[provider];
 
     if (subtitle.preserveOption && subtitle.label) {
         return subtitle.label;
     }
 
+    if (provider === 'stremio' || provider === 'streamimdb') {
+        return `${langLabel} (Stremio)`;
+    }
+
+    const providerLabel = PROVIDER_LABELS[provider];
     if (!providerLabel) {
         return subtitle.label || subtitle.name || langLabel;
     }
 
-    return `${langLabel} (${providerLabel})`;
+    return langLabel;
 };
 
 export const optimizeSubtitleList = (subtitles = []) => {
