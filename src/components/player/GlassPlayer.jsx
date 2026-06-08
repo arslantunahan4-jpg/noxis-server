@@ -71,7 +71,8 @@ const inferSubtitleSourceParamFromUrl = (url) => {
             decodedUrl.includes('vaplayer') ||
             decodedUrl.includes('justhd.tv') ||
             decodedUrl.includes('onlinecoachingacademy') ||
-            decodedUrl.includes('brightpathsignals')
+            decodedUrl.includes('brightpathsignals') ||
+            decodedUrl.includes('nextgencloudfabric')
         ) {
             return 'streamimdb';
         }
@@ -82,7 +83,8 @@ const inferSubtitleSourceParamFromUrl = (url) => {
         activeUrl.includes('vaplayer') ||
         activeUrl.includes('justhd.tv') ||
         activeUrl.includes('onlinecoachingacademy') ||
-        activeUrl.includes('brightpathsignals')
+        activeUrl.includes('brightpathsignals') ||
+        activeUrl.includes('nextgencloudfabric')
     ) {
         return 'streamimdb';
     }
@@ -1613,7 +1615,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
                 decodedUrl.includes('vaplayer') ||
                 decodedUrl.includes('justhd.tv') ||
                 decodedUrl.includes('onlinecoachingacademy') ||
-                decodedUrl.includes('brightpathsignals')
+                decodedUrl.includes('brightpathsignals') ||
+                decodedUrl.includes('nextgencloudfabric')
             ) return 'StreamIMDb';
         } catch (e) {}
 
@@ -1625,7 +1628,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
             activeUrl.includes('vaplayer') ||
             activeUrl.includes('justhd.tv') ||
             activeUrl.includes('onlinecoachingacademy') ||
-            activeUrl.includes('brightpathsignals')
+            activeUrl.includes('brightpathsignals') ||
+            activeUrl.includes('nextgencloudfabric')
         ) return 'StreamIMDb';
         return 'Kaynak';
     }, [currentStreamUrl, streamUrl]);

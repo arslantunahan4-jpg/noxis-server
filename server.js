@@ -49,7 +49,7 @@ const CONFIG = {
         'vidmody.com', 'gamephotos.pro', 'photoflick.org', 'photofunny.org', 'photofunia.pro', 'photoflax.org',
         'm.media-amazon.com', 'diziyou.to', 'storage.diziyou.to', 'storage.diziyou.one', 'strem.io', 'opensubtitles.org',
         'dizigom104.com', 'play.dizigom104.com', 'df856-54hilsnz.xyz', 'n1.df856-54hilsnz.xyz',
-        'streamimdb.ru', 'brightpathsignals.com', 'streamdata.vaplayer.ru', 'vaplayer.ru',
+        'streamimdb.ru', 'brightpathsignals.com', 'nextgencloudfabric.com', 'streamdata.vaplayer.ru', 'vaplayer.ru',
         'vidapi.cloud', 'justhd.tv', 'tmstrd.justhd.tv', 'onlinecoachingacademy.site'
     ]
 };
@@ -1254,8 +1254,8 @@ app.get('/api/video-proxy', async (req, res) => {
                 targetUrl.includes('nextlevelbrandstudio.site') ||
                 targetUrl.includes('premiumleadgeneration.site')
             ) {
-                headers['Referer'] = 'https://brightpathsignals.com/';
-                headers['Origin'] = 'https://brightpathsignals.com';
+                headers['Referer'] = 'https://nextgencloudfabric.com/';
+                headers['Origin'] = 'https://nextgencloudfabric.com';
             }
         }
 
@@ -1267,7 +1267,7 @@ app.get('/api/video-proxy', async (req, res) => {
         const isM3U8 = targetUrl.includes('.m3u8') || targetUrl.includes('.m3u');
 
         const refererLower = String(customReferer || '').toLowerCase();
-        const isStreamimdb = refererLower.includes('brightpathsignals.com') || refererLower.includes('streamimdb.ru') ||
+        const isStreamimdb = refererLower.includes('brightpathsignals.com') || refererLower.includes('nextgencloudfabric.com') || refererLower.includes('streamimdb.ru') ||
             targetUrl.includes('streamdata.vaplayer.ru') ||
             targetUrl.includes('tmstrd.justhd.tv') ||
             targetUrl.includes('onlinecoachingacademy.site') ||
@@ -2314,7 +2314,7 @@ const getVidmodyWorkingAudio = (audios = []) => {
 };
 
 const STREAMIMDB_WRAPPER_ORIGIN = 'https://streamimdb.ru';
-const STREAMIMDB_PLAYER_ORIGIN = 'https://brightpathsignals.com';
+const STREAMIMDB_PLAYER_ORIGIN = 'https://nextgencloudfabric.com';
 const STREAMIMDB_DATA_API = 'https://streamdata.vaplayer.ru/api.php';
 
 const streamimdbCache = new LRUCache({ max: 200, ttl: 1000 * 60 * 2 });

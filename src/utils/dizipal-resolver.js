@@ -104,9 +104,9 @@ export async function resolveDizipal(pageUrl) {
         $('iframe').each((i, el) => {
             const src = $(el).attr('src');
             if (src) {
-                if (src.includes('vidmody') || src.includes('streamimdb') || src.includes('brightpathsignals')) {
+                if (src.includes('vidmody') || src.includes('streamimdb') || src.includes('brightpathsignals') || src.includes('nextgencloudfabric')) {
                     streams.push({
-                        provider: src.includes('vidmody') ? 'Vidmody' : (src.includes('streamimdb') ? 'StreamIMDb' : 'BrightPath'),
+                        provider: src.includes('vidmody') ? 'Vidmody' : ((src.includes('streamimdb') || src.includes('nextgencloudfabric')) ? 'StreamIMDb' : 'BrightPath'),
                         url: src
                     });
                 } else if (src.startsWith('http') || src.startsWith('//')) {

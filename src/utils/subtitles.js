@@ -51,7 +51,8 @@ export const inferSubtitleProvider = (subtitle = {}, fallback = '') => {
         url.includes('vaplayer') ||
         url.includes('justhd.tv') ||
         url.includes('onlinecoachingacademy') ||
-        url.includes('brightpathsignals')
+        url.includes('brightpathsignals') ||
+        url.includes('nextgencloudfabric')
     ) return 'streamimdb';
     if (text.includes('stremio') || url.includes('strem.io')) return 'stremio';
     if (text.includes('opensubtitles') || text.includes('- os') || url.includes('opensubtitles')) return 'opensubtitles';
