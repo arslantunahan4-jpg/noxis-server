@@ -314,12 +314,21 @@ export default {
         
         const userAgent = request.headers.get('User-Agent') || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
+        const customReferer = url.searchParams.get('referer');
+        const refererHeader = customReferer || 'https://vidmody.com/';
+        let originHeader = 'https://vidmody.com';
+        try {
+            if (customReferer) {
+                originHeader = new URL(customReferer).origin;
+            }
+        } catch (e) {}
+
         // Strategy 1: Standard Request with Referer
         let response = await fetch(targetUrl, {
             method: request.method,
             headers: {
-                'Referer': 'https://vidmody.com/',
-                'Origin': 'https://vidmody.com',
+                'Referer': refererHeader,
+                'Origin': originHeader,
                 'User-Agent': userAgent
             }
         });
