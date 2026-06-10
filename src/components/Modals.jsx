@@ -444,7 +444,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     const videoUrl = diziyouSources?.original || diziyouSources?.turkish_dub;
 
                     if (diziyouSources && videoUrl) {
-                        const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(videoUrl)}`;
+                        const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(videoUrl)}&mode=proxy&referer=${encodeURIComponent('https://www.diziyou.one/')}`;
                         
                         const sourceSubtitles = normalizeSourceSubtitles(diziyouSources.subtitles || [], 'Diziyou');
 
@@ -590,7 +590,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             setSubtitles(sourceSubtitles);
                         }
 
-                        setStreamUrl(`${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(dizigomSources.original)}`);
+                        setStreamUrl(`${WORKER_URL}?url=${encodeURIComponent(dizigomSources.original)}&mode=proxy&referer=${encodeURIComponent('https://play.dizigom104.com/')}`);
                         setShowMagnetPlayer(true);
                         setMagnetLoading(false);
                         return;
@@ -649,7 +649,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                         }
 
                         const initialUrl = dizimomSources.original || dizimomSources.turkish_dub;
-                        const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(initialUrl)}`;
+                        const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(initialUrl)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                         setStreamUrl(proxiedUrl);
                         setShowMagnetPlayer(true);
                         setMagnetLoading(false);
@@ -1206,11 +1206,11 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             onChange: (track) => {
                                 if (!diziyouAudioTracks) return;
                                 if (track === 'dub' && diziyouAudioTracks.dub) {
-                                    const proxied = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(diziyouAudioTracks.dub)}`;
+                                    const proxied = `${WORKER_URL}?url=${encodeURIComponent(diziyouAudioTracks.dub)}&mode=proxy&referer=${encodeURIComponent('https://www.diziyou.one/')}`;
                                     setStreamUrl(proxied);
                                     setDiziyouAudioTracks({ ...diziyouAudioTracks, active: 'dub' });
                                 } else if (track === 'original' && diziyouAudioTracks.original) {
-                                    const proxied = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(diziyouAudioTracks.original)}`;
+                                    const proxied = `${WORKER_URL}?url=${encodeURIComponent(diziyouAudioTracks.original)}&mode=proxy&referer=${encodeURIComponent('https://www.diziyou.one/')}`;
                                     setStreamUrl(proxied);
                                     setDiziyouAudioTracks({ ...diziyouAudioTracks, active: 'original' });
                                 }
@@ -1224,11 +1224,11 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             onChange: (track) => {
                                 if (!dizimomAudioTracks) return;
                                 if (track === 'dub' && dizimomAudioTracks.dub) {
-                                    const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(dizimomAudioTracks.dub)}`;
+                                    const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(dizimomAudioTracks.dub)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                                     setStreamUrl(proxiedUrl);
                                     setDizimomAudioTracks({ ...dizimomAudioTracks, active: 'dub' });
                                 } else if (track === 'original' && dizimomAudioTracks.original) {
-                                    const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(dizimomAudioTracks.original)}`;
+                                    const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(dizimomAudioTracks.original)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                                     setStreamUrl(proxiedUrl);
                                     setDizimomAudioTracks({ ...dizimomAudioTracks, active: 'original' });
                                 }
@@ -2003,7 +2003,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                     const sources = await Promise.race([dizigomPromise, dizigomTimeoutPromise]);
 
                     if (sources?.original && !cancelled) {
-                        const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(sources.original)}`;
+                        const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(sources.original)}&mode=proxy&referer=${encodeURIComponent('https://play.dizigom104.com/')}`;
                         const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Dizigom');
 
                         try {
@@ -2065,7 +2065,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
 
                     if (sources && (sources.original || sources.turkish_dub) && !cancelled) {
                         const initialUrl = sources.original || sources.turkish_dub;
-                        const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(initialUrl)}`;
+                        const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(initialUrl)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                         
                         const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Dizimom');
                         // Try OpenSubtitles as fallback for subtitles
@@ -2174,7 +2174,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
         if (!dizimomSources) return;
         const targetUrl = track === 'dub' ? dizimomSources.turkish_dub : dizimomSources.original;
         if (targetUrl) {
-            const proxiedUrl = `${SERVER_URL}/api/video-proxy?url=${encodeURIComponent(targetUrl)}`;
+            const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(targetUrl)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
             setDizimomUrl(proxiedUrl);
         }
     };

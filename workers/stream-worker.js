@@ -679,7 +679,37 @@ export default {
 
     if (isProxyRequest(url)) {
       const targetUrl = params.get('url');
-      const referer = params.get('referer') || DEFAULT_REFERER;
+      let referer = params.get('referer');
+
+      if (!referer && targetUrl) {
+        const lowerUrl = targetUrl.toLowerCase();
+        if (lowerUrl.includes('hdplayersystem.com')) {
+          referer = 'https://hdplayersystem.com/';
+        } else if (lowerUrl.includes('hdmomplayer.com')) {
+          referer = 'https://hdmomplayer.com/';
+        } else if (lowerUrl.includes('diziyou') || lowerUrl.includes('dystream.com')) {
+          referer = 'https://www.diziyou.one/';
+        } else if (lowerUrl.includes('play.dizigom104.com') || lowerUrl.includes('df856-54hilsnz.xyz') || lowerUrl.includes('dizigom')) {
+          referer = 'https://play.dizigom104.com/';
+        } else if (lowerUrl.includes('vidmody')) {
+          referer = 'https://vidmody.com/';
+        } else if (
+          lowerUrl.includes('streamdata.vaplayer.ru') ||
+          lowerUrl.includes('tmstrd.justhd.tv') ||
+          lowerUrl.includes('onlinecoachingacademy.site') ||
+          lowerUrl.includes('justhd.tv') ||
+          lowerUrl.includes('nextlevelbrandstudio.site') ||
+          lowerUrl.includes('premiumleadgeneration.site') ||
+          lowerUrl.includes('brightpathsignals.com') ||
+          lowerUrl.includes('nextgencloudfabric.com')
+        ) {
+          referer = 'https://nextgencloudfabric.com/';
+        } else {
+          referer = DEFAULT_REFERER;
+        }
+      } else if (!referer) {
+        referer = DEFAULT_REFERER;
+      }
 
       if (!targetUrl) {
         return new Response('URL required', { status: 400, headers: corsHeaders });
