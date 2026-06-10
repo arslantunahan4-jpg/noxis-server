@@ -2385,6 +2385,21 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
     const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
     const results = [];
 
+    const useBackendProxy = USE_TOR && torAgent;
+    const getStreamProxyUrl = (targetUrl) => {
+        if (useBackendProxy) {
+            // If Tor is active, proxy the HLS stream/segments through Render's backend Tor proxy
+            // to bypass Cloudflare WAF blocks that affect Cloudflare Worker IP ranges.
+            return `${req.protocol}://${req.get('host')}/api/video-proxy?` + 
+                (embedUrl ? `referer=${encodeURIComponent(embedUrl)}&` : '') + 
+                `url=${encodeURIComponent(targetUrl)}`;
+        } else {
+            // Otherwise, route through Cloudflare Worker proxy
+            return `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy` + 
+                (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+        }
+    };
+
     for (let index = 0; index < uniqueUrls.length; index++) {
         const playlistUrl = uniqueUrls[index];
         const qualityBase = getStreamimdbQualityLabel(playlistUrl, index);
@@ -2413,10 +2428,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
 
             const content = typeof response.data === 'string' ? response.data : '';
             if (content.includes('#EXTM3U')) {
-                // Video streaming must NEVER pass through the Render backend.
-                // Always rewrite variants to point directly to Cloudflare Worker to save Render bandwidth.
-                const masterProxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
-                    (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+                const masterProxiedUrl = getStreamProxyUrl(playlistUrl);
                 results.push({
                     resolution: 'auto',
                     quality: `${qualityBase} (Otomatik)`,
@@ -2447,9 +2459,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                             qual = resolution;
                         }
 
-                        // Point directly to Cloudflare Worker URL, NOT the backend's video-proxy.
-                        const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(video.url)}&mode=proxy` + 
-                            (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+                        const proxiedUrl = getStreamProxyUrl(video.url);
                         results.push({
                             resolution,
                             quality: `${qualityBase} (${qual})`,
@@ -2466,9 +2476,8 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
             console.warn(`[StreamIMDb Parse] Failed to parse/fetch playlist ${playlistUrl}:`, e.message);
         }
 
-        // Fallback: Point directly to Cloudflare Worker URL.
-        const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
-            (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+        // Fallback: Point to selected proxy URL.
+        const proxiedUrl = getStreamProxyUrl(playlistUrl);
         results.push({
             resolution: 'auto',
             quality: qualityBase,
