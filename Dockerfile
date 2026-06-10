@@ -11,6 +11,7 @@ RUN npm install
 
 COPY . .
 
+ENV PORT=7860
 EXPOSE 7860
 
 RUN chmod +x start.sh
