@@ -2390,6 +2390,8 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         const qualityBase = getStreamimdbQualityLabel(playlistUrl, index);
         
         try {
+            // WE MUST ALWAYS FETCH/PARSE MANIFESTS VIA BACKEND (TOR OR DIRECT)
+            // TO BYPASS CORRUPTION/ACCESS RESTRICTIONS FROM REVENUE SITES.
             let requestUrl = playlistUrl;
             let proxyAgent = undefined;
 
@@ -2411,9 +2413,8 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
 
             const content = typeof response.data === 'string' ? response.data : '';
             if (content.includes('#EXTM3U')) {
-                // HLS Master Playlist'in kendisini en başa proxy'leyerek ekle.
-                // Bu sayede hls.js master playlist'i yükleyecek ve içindeki tüm çözünürlükleri (800p, 534p vb.)
-                // otomatik olarak doğru yükseklik değerleriyle algılayıp "0p" hatasını önleyecektir.
+                // Video streaming must NEVER pass through the Render backend.
+                // Always rewrite variants to point directly to Cloudflare Worker to save Render bandwidth.
                 const masterProxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
                     (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
                 results.push({
@@ -2425,16 +2426,14 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                     label: `${qualityBase} - Otomatik`
                 });
 
-                // HLS Master Playlist parse et
+                // Parse HLS Master Playlist
                 const parsed = parseM3U8Manifest(content, playlistUrl);
                 
                 if (parsed.videos && parsed.videos.length > 0) {
-                    // Alt çözünürlükleri de yedek/alternatif olarak proxy'leyerek ekle
                     parsed.videos.forEach((video) => {
                         const resolution = video.resolution || 'unknown';
                         let qual = 'auto';
                         
-                        // Çözünürlükten veya bandwidth'den kalite etiketini çıkaralım
                         if (resolution.includes('1920x1080')) qual = '1080p';
                         else if (resolution.includes('1280x720')) qual = '720p';
                         else if (resolution.includes('854x480')) qual = '480p';
@@ -2448,6 +2447,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                             qual = resolution;
                         }
 
+                        // Point directly to Cloudflare Worker URL, NOT the backend's video-proxy.
                         const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(video.url)}&mode=proxy` + 
                             (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
                         results.push({
@@ -2459,14 +2459,14 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                             label: `${qualityBase} - ${qual}`
                         });
                     });
-                    continue; // Eğer parse başarılı olduysa bir sonraki URL'e geç
+                    continue;
                 }
             }
         } catch (e) {
             console.warn(`[StreamIMDb Parse] Failed to parse/fetch playlist ${playlistUrl}:`, e.message);
         }
 
-        // Parse edilemezse veya hata alınırsa doğrudan proxy'leyerek ekle (Fallback - mutlak URL)
+        // Fallback: Point directly to Cloudflare Worker URL.
         const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
             (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
         results.push({

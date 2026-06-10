@@ -1,6 +1,7 @@
 [build]
   publish = "dist"
   command = "npm run build"
+  ignore = "git diff --quiet $COMMIT_REF^ $COMMIT_REF -- src/ public/ index.html vite.config.js package.json"
 
 [functions]
   directory = "netlify/functions"
