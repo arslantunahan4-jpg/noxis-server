@@ -11,7 +11,7 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 3000
+EXPOSE 7860
 
 RUN chmod +x start.sh
 CMD ["./start.sh"]
