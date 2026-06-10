@@ -2382,7 +2382,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         streamUrls.filter(url => typeof url === 'string' && /^https?:\/\//i.test(url))
     ));
 
-    const host = req ? `${req.protocol}://${req.get('host')}` : '';
+    const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
     const results = [];
 
     for (let index = 0; index < uniqueUrls.length; index++) {
@@ -2396,7 +2396,6 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
             if (USE_TOR && torAgent) {
                 proxyAgent = torAgent;
             } else {
-                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
                 requestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
                     (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
             }
@@ -2415,7 +2414,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                 // HLS Master Playlist'in kendisini en başa proxy'leyerek ekle.
                 // Bu sayede hls.js master playlist'i yükleyecek ve içindeki tüm çözünürlükleri (800p, 534p vb.)
                 // otomatik olarak doğru yükseklik değerleriyle algılayıp "0p" hatasını önleyecektir.
-                const masterProxiedUrl = `${host}/api/video-proxy?url=${encodeURIComponent(playlistUrl)}` + 
+                const masterProxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
                     (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
                 results.push({
                     resolution: 'auto',
@@ -2449,7 +2448,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
                             qual = resolution;
                         }
 
-                        const proxiedUrl = `${host}/api/video-proxy?url=${encodeURIComponent(video.url)}` + 
+                        const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(video.url)}&mode=proxy` + 
                             (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
                         results.push({
                             resolution,
@@ -2468,7 +2467,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         }
 
         // Parse edilemezse veya hata alınırsa doğrudan proxy'leyerek ekle (Fallback - mutlak URL)
-        const proxiedUrl = `${host}/api/video-proxy?url=${encodeURIComponent(playlistUrl)}` + 
+        const proxiedUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
             (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
         results.push({
             resolution: 'auto',

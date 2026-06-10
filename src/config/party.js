@@ -11,7 +11,7 @@ export const SOCKET_CONFIG = (() => {
     url,
     options: {
       path: '/socket.io/', // Standard socket.io path that Nginx proxies
-      transports: ['websocket', 'polling'], // Allow fallback
+      transports: ['websocket'], // Force native WebSockets only to bypass Hugging Face polling restrictions
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
