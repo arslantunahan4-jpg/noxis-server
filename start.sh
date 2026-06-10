@@ -1,6 +1,6 @@
 #!/bin/sh
 echo "Starting Tor..."
-tor --RunAsDaemon 1 --User debian-tor
+tor --RunAsDaemon 1 --User debian-tor --DataDirectory /var/lib/tor
 
 echo "Waiting for Tor to bootstrap..."
 sleep 10
