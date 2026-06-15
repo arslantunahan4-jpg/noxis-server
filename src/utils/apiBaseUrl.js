@@ -21,6 +21,23 @@ const isLocalEnvironmentUrl = (value = '') => {
     }
 };
 
+const isDeadApiHost = (value = '') => {
+    try {
+        return new URL(value).hostname === 'api.noxis.tech';
+    } catch (error) {
+        return false;
+    }
+};
+
+const getRuntimeApiUrl = () => {
+    try {
+        if (typeof window === 'undefined') return '';
+        return window.__NOXIS_CONFIG__?.API_URL || window.__NOXIS_API_URL__ || '';
+    } catch (error) {
+        return '';
+    }
+};
+
 export const getApiBaseUrl = () => {
     try {
         if (typeof window !== 'undefined') {
@@ -37,7 +54,17 @@ export const getApiBaseUrl = () => {
                 return 'http://localhost:3000';
             }
 
-            if (savedUrl) return trimTrailingSlash(savedUrl);
+            if (savedUrl && isDeadApiHost(savedUrl)) {
+                window.localStorage?.removeItem('noxis_api_url');
+            } else if (savedUrl) {
+                return trimTrailingSlash(savedUrl);
+            }
+
+            const runtimeApiUrl = getRuntimeApiUrl();
+            if (runtimeApiUrl) {
+                return trimTrailingSlash(runtimeApiUrl);
+            }
+
         }
     } catch (error) {}
 
