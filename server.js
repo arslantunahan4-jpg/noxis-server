@@ -530,44 +530,34 @@ app.post('/api/auth/:action', async (req, res) => {
         if (action === 'login') {
             const { username, password } = req.body;
             if (!username) return res.status(400).json({ error: 'Eksik bilgi' });
+            const identifier = String(username).trim().toLowerCase();
+            if (!identifier) return res.status(400).json({ error: 'Eksik bilgi' });
 
             // Hem username hem email ile arama yap
             let user = await User.findOne({ 
                 $or: [
-                    { username: username.toLowerCase() },
-                    { email: username.toLowerCase() }
+                    { username: identifier },
+                    { email: identifier }
                 ]
             });
 
-            const isProd = process.env.NODE_ENV === 'production';
-
-            // Geliştirici modunda kullanıcı yoksa otomatik oluştur ve yönetici yap
-            if (!user && !isProd) {
-                const { salt, hash } = setPassword(password || 'dev');
-                user = await User.create({
-                    username: username.toLowerCase(),
-                    email: `${username.toLowerCase()}@dev.local`,
-                    hash,
-                    salt,
-                    role: 'admin'
-                });
-            }
-
             if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
+            if (user.isBanned || user.isActive === false) {
+                return res.status(403).json({ error: 'Bu hesap devre dışı' });
+            }
 
             let isValid = false;
 
             // PBKDF2 format (yeni) - salt varsa
             if (user.salt && user.hash) {
-                isValid = validatePassword(password || 'dev', user.salt, user.hash);
+                isValid = validatePassword(password || '', user.salt, user.hash);
             }
             // Bcrypt format (eski) - password $2b$ ile başlıyorsa
-            else if (user.password && user.password.startsWith('$2b$')) {
-                isValid = await bcrypt.compare(password || 'dev', user.password);
+            else if (typeof user.password === 'string' && user.password.startsWith('$2b$')) {
+                isValid = await bcrypt.compare(password || '', user.password);
             }
 
-            // Geliştirici modunda şifre eşleşmese bile girişe izin ver
-            if (!isValid && isProd) {
+            if (!isValid) {
                 return res.status(401).json({ error: 'Hatalı şifre' });
             }
 
