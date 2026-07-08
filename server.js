@@ -37,6 +37,22 @@ const OS = new OpenSubtitles({
 
 dotenv.config();
 
+const DEFAULT_KEEP_ALIVE_URL = 'https://noxis-web-6mz3.onrender.com';
+const DEFAULT_KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
+
+const parseKeepAliveInterval = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return DEFAULT_KEEP_ALIVE_INTERVAL_MS;
+    }
+
+    return Math.max(parsed, 60 * 1000);
+};
+
+const isKeepAliveEnabledByDefault = () => {
+    return process.env.RENDER_SERVICE_TYPE === 'web' || Boolean(process.env.RENDER_EXTERNAL_URL);
+};
+
 const CONFIG = {
     PORT: process.env.PORT || 3000,
     REAL_DEBRID_TOKEN: process.env.REAL_DEBRID_TOKEN || '',
@@ -44,6 +60,9 @@ const CONFIG = {
     MONGODB_URI: process.env.MONGODB_URI,
     FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
     FFPROBE_PATH: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
+    KEEP_ALIVE_ENABLED: String(process.env.KEEP_ALIVE_ENABLED ?? isKeepAliveEnabledByDefault()).toLowerCase() === 'true',
+    KEEP_ALIVE_URL: process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL || DEFAULT_KEEP_ALIVE_URL,
+    KEEP_ALIVE_INTERVAL_MS: parseKeepAliveInterval(process.env.KEEP_ALIVE_INTERVAL_MS),
     ALLOWED_PROXY_DOMAINS: [
         'yts.mx', 'yts.lt', 'eztvx.to', '1337x.to', 'torrentio.strem.fun', 'themoviedb.org', 'image.tmdb.org', 'tmdb.org',
         'vidmody.com', 'gamephotos.pro', 'photoflick.org', 'photofunny.org', 'photofunia.pro', 'photoflax.org',
@@ -205,6 +224,15 @@ app.use(cors({ origin: '*' }));
 app.use(compression());
 app.use(express.json());
 
+app.get(['/api/health', '/healthz'], (req, res) => {
+    res.status(200).json({
+        ok: true,
+        service: 'noxis-backend',
+        uptime: Math.round(process.uptime()),
+        timestamp: new Date().toISOString()
+    });
+});
+
 app.use((req, res, next) => {
     console.log(`[Incoming] ${req.method} ${req.url} | IP: ${req.ip}`);
     next();
@@ -217,6 +245,64 @@ const limiter = rateLimit({
     legacyHeaders: false,
 });
 app.use(limiter);
+
+const normalizeKeepAliveUrl = (rawUrl) => {
+    if (!rawUrl) return null;
+
+    try {
+        const url = new URL(rawUrl);
+        if (!url.pathname || url.pathname === '/') {
+            url.pathname = '/api/health';
+        }
+        return url.toString();
+    } catch (error) {
+        console.warn(`[keep-alive] Invalid KEEP_ALIVE_URL: ${rawUrl}`);
+        return null;
+    }
+};
+
+const startKeepAlive = () => {
+    if (!CONFIG.KEEP_ALIVE_ENABLED) {
+        return;
+    }
+
+    const keepAliveUrl = normalizeKeepAliveUrl(CONFIG.KEEP_ALIVE_URL);
+    if (!keepAliveUrl) {
+        return;
+    }
+
+    let inFlight = false;
+    const ping = async () => {
+        if (inFlight) return;
+        inFlight = true;
+
+        try {
+            const response = await axios.get(keepAliveUrl, {
+                timeout: 15000,
+                headers: {
+                    'User-Agent': 'Noxis-KeepAlive/1.0'
+                },
+                validateStatus: (status) => status >= 200 && status < 500
+            });
+
+            if (response.status >= 400) {
+                console.warn(`[keep-alive] Ping returned HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.warn(`[keep-alive] Ping failed: ${error.message}`);
+        } finally {
+            inFlight = false;
+        }
+    };
+
+    const initialTimer = setTimeout(ping, 30 * 1000);
+    initialTimer.unref?.();
+
+    const interval = setInterval(ping, CONFIG.KEEP_ALIVE_INTERVAL_MS);
+    interval.unref?.();
+
+    console.log(`[keep-alive] Enabled: ${keepAliveUrl} every ${Math.round(CONFIG.KEEP_ALIVE_INTERVAL_MS / 60000)} minute(s)`);
+};
 
 let isDbConnected = false;
 if (CONFIG.MONGODB_URI) {
@@ -2979,6 +3065,7 @@ app.get('/api/admin/users', adminMiddleware, async (req, res) => {
 
 // Use httpServer to listen instead of app.listen
 httpServer.listen(CONFIG.PORT, () => {
+    startKeepAlive();
 
 // LiveKit Token Endpoint
 app.post('/api/livekit/token', authenticateToken, async (req, res) => {
