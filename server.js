@@ -3824,17 +3824,34 @@ app.get('/api/notifications', authenticateToken, async (req, res) => {
 
 app.post('/api/notifications/recommend', authenticateToken, async (req, res) => {
     try {
-        const { recipientId, data } = req.body;
+        const { recipientId, data, title, tmdbId, mediaType, posterPath, message } = req.body;
+        const payloadData = data || { title, tmdbId, mediaType, posterPath, message };
+
         const notif = new Notification({
             sender: req.user.id,
             recipient: recipientId,
             type: 'RECOMMENDATION',
-            data
+            data: payloadData
         });
         await notif.save();
+
+        const recipientSockets = onlineUsers.get(String(recipientId));
+        if (recipientSockets) {
+            const senderUser = await User.findById(req.user.id).select('username avatarId');
+            recipientSockets.forEach(sid => {
+                io.to(sid).emit('new_notification', {
+                    _id: notif._id,
+                    sender: senderUser,
+                    type: 'RECOMMENDATION',
+                    data: payloadData,
+                    createdAt: notif.createdAt
+                });
+            });
+        }
+
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
+        console.error('Recommendation error:', err);
         res.status(500).json({ error: 'Failed to send recommendation' });
     }
 });

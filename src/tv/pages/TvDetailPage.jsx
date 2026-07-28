@@ -401,14 +401,21 @@ const TvDetailPage = () => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                                     {friends.map(f => (
                                         <button key={f._id} onClick={async () => {
-                                            await friendsService.sendRecommendation({
-                                                recipientId: f._id,
-                                                tmdbId: id,
-                                                mediaType: type,
-                                                title: mediaTitle(movie),
-                                                posterPath: movie?.poster_path,
-                                                message: recommendMsg
-                                            });
+                                            try {
+                                                await friendsService.sendRecommendation({
+                                                    recipientId: f._id,
+                                                    data: {
+                                                        tmdbId: id,
+                                                        mediaType: type,
+                                                        title: mediaTitle(movie),
+                                                        posterPath: movie?.poster_path,
+                                                        message: recommendMsg
+                                                    }
+                                                });
+                                                alert(`${f.username} kullanıcısına başarıyla önerildi!`);
+                                            } catch (err) {
+                                                console.error("Recommend error:", err);
+                                            }
                                             setShowRecommendModal(false);
                                             setRecommendMsg('');
                                         }} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '10px 12px', border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer' }}>
