@@ -72,6 +72,9 @@ export const friendsService = {
     inviteToWatchlist: (listId, friendId) => apiCall(`/api/watchlists/${listId}/invite`, {
         method: 'POST', body: JSON.stringify({ friendId })
     }),
+    removeFromWatchlist: (listId, itemId) => apiCall(`/api/watchlists/${listId}/remove`, {
+        method: 'POST', body: JSON.stringify({ itemId })
+    }),
     deleteWatchlist: (listId) => apiCall(`/api/watchlists/${listId}`, {
         method: 'DELETE'
     })

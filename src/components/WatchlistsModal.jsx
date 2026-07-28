@@ -14,6 +14,7 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
     const [friends, setFriends] = useState([]);
     const [showInviteUI, setShowInviteUI] = useState(false);
     const [inviteLoading, setInviteLoading] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(false);
 
     // Create form
     const [isCreating, setIsCreating] = useState(false);
@@ -85,12 +86,27 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
     };
 
     const handleDeleteList = async () => {
-        if (!window.confirm("Bu listeyi silmek istediğinize emin misiniz?")) return;
+        if (!deleteConfirm) {
+            setDeleteConfirm(true);
+            setTimeout(() => setDeleteConfirm(false), 3000);
+            return;
+        }
         try {
             await friendsService.deleteWatchlist(selectedList._id);
             const data = await friendsService.getWatchlists();
             setLists(data.watchlists || []);
             setSelectedList(null);
+            setDeleteConfirm(false);
+        } catch(e) { console.error(e); }
+    };
+
+    const handleRemoveItem = async (e, itemId) => {
+        e.stopPropagation();
+        try {
+            await friendsService.removeFromWatchlist(selectedList._id, itemId);
+            const data = await friendsService.getWatchlists();
+            setLists(data.watchlists || []);
+            setSelectedList(data.watchlists.find(l => l._id === selectedList._id));
         } catch(e) { console.error(e); }
     };
 
@@ -136,8 +152,8 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                             </h2>
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                 {selectedList && selectedList.owner._id === user?.id && (
-                                    <button onClick={handleDeleteList} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: '20px', cursor: 'pointer' }} title="Listeyi Sil">
-                                        <i className="fas fa-trash" />
+                                    <button onClick={handleDeleteList} style={{ background: deleteConfirm ? '#e50914' : 'transparent', border: 'none', color: deleteConfirm ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: deleteConfirm ? '14px' : '20px', padding: deleteConfirm ? '5px 10px' : '0', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s' }} title="Listeyi Sil">
+                                        {deleteConfirm ? 'Sil' : <i className="fas fa-trash" />}
                                     </button>
                                 )}
                                 <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}><i className="fas fa-times" /></button>
@@ -212,6 +228,9 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                                                             {item.mediaType === 'tv' ? 'Dizi' : 'Film'}
                                                         </span>
                                                     </div>
+                                                    <button onClick={(e) => handleRemoveItem(e, item._id)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', padding: '5px', cursor: 'pointer', fontSize: '16px' }} title="Listeden Çıkar" onMouseOver={e => e.currentTarget.style.color = '#e50914'} onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                                                        <i className="fas fa-times" />
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>

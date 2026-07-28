@@ -3882,6 +3882,24 @@ app.post('/api/watchlists/:id/add', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/watchlists/:id/remove', authenticateToken, async (req, res) => {
+    try {
+        const list = await Watchlist.findById(req.params.id);
+        if (!list) return res.status(404).json({ error: 'Not found' });
+        if (list.owner.toString() !== req.user.id && !list.collaborators.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+        
+        const { itemId } = req.body;
+        if (!itemId) return res.status(400).json({ error: 'itemId required' });
+
+        list.items = list.items.filter(i => String(i._id) !== itemId);
+        await list.save();
+        res.json({ success: true, watchlist: list });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to remove item' });
+    }
+});
+
 app.delete('/api/watchlists/:id', authenticateToken, async (req, res) => {
     try {
         const list = await Watchlist.findById(req.params.id);
