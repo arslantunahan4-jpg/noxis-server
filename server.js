@@ -3410,6 +3410,7 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             friendCount,
             isOnline,
             lastSeen: lastSeenDate,
+            currentlyWatching: isOnline ? (targetUser.onlineStatus?.currentlyWatching || null) : null,
             memberSince: targetUser.createdAt
         };
 

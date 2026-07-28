@@ -163,6 +163,33 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
         backdrop_path: metadata.backdrop_path || null
     };
 
+let lastActivitySyncTime = 0;
+const syncCurrentlyWatchingActivity = (item) => {
+    if (!item || !item.title) return;
+    const now = Date.now();
+    if (now - lastActivitySyncTime < 10000) return;
+    lastActivitySyncTime = now;
+
+    try {
+        const token = getUserToken();
+        if (!token) return;
+        fetch(`${API_URL}/api/friends/activity`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: item.title,
+                imdbId: item.imdbId,
+                poster: item.poster_path,
+                season: item.season,
+                episode: item.episode
+            })
+        }).catch(() => {});
+    } catch (e) {}
+};
+
     try {
         // PERFORMANCE: Kayıt sayısını kontrol et
         history = pruneOldEntries(history);
@@ -171,6 +198,7 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
 
         // Her kayıtta backend sync'i tetikle (throttle zaten korur)
         syncItemWithBackend(history[key]);
+        syncCurrentlyWatchingActivity(history[key]);
     } catch (e) {
         console.warn('[WatchHistory] Storage full, clearing old entries');
         // Acil temizlik - yarısını sil
