@@ -3746,66 +3746,78 @@ app.post('/api/friends/remove', authenticateToken, async (req, res) => {
 // GET /api/friends/list - Get friends list with online status
 app.get('/api/friends/list', authenticateToken, async (req, res) => {
     try {
-        const userObjId = mongoose.Types.ObjectId.isValid(req.user.id)
-            ? new mongoose.Types.ObjectId(String(req.user.id))
+        const currentUserId = String(req.user.id);
+        const userObjId = mongoose.Types.ObjectId.isValid(currentUserId)
+            ? new mongoose.Types.ObjectId(currentUserId)
             : req.user.id;
 
         const friendships = await Friendship.find({
             $or: [
-                { requester: userObjId, status: 'accepted' },
-                { recipient: userObjId, status: 'accepted' },
-                { requester: String(req.user.id), status: 'accepted' },
-                { recipient: String(req.user.id), status: 'accepted' }
-            ]
+                { requester: userObjId },
+                { recipient: userObjId },
+                { requester: currentUserId },
+                { recipient: currentUserId }
+            ],
+            status: { $regex: /^accepted$/i }
         }).populate('requester recipient', 'username avatarId bio profileVisibility onlineStatus');
 
-        const friends = friendships
-            .map(f => {
-                if (!f.requester || !f.recipient) return null;
-                const reqId = String(f.requester._id || f.requester);
-                const recId = String(f.recipient._id || f.recipient);
-                const currentId = String(req.user.id);
+        const friends = await Promise.all(friendships.map(async (f) => {
+            const reqIdStr = String(f.requester?._id || f.requester || '');
+            const recIdStr = String(f.recipient?._id || f.recipient || '');
 
-                let friend = null;
-                if (reqId === currentId) {
-                    friend = f.recipient;
-                } else if (recId === currentId) {
-                    friend = f.requester;
-                } else {
-                    // Fallback comparison
-                    friend = String(f.requester.username || '').toLowerCase() === String(req.user.username || '').toLowerCase()
-                        ? f.recipient : f.requester;
+            let friend = null;
+            if (reqIdStr === currentUserId) {
+                friend = f.recipient;
+            } else if (recIdStr === currentUserId) {
+                friend = f.requester;
+            } else {
+                // Fallback: match by username if IDs differ in format
+                const reqName = String(f.requester?.username || '').toLowerCase();
+                const currentName = String(req.user.username || '').toLowerCase();
+                friend = (reqName === currentName) ? f.recipient : f.requester;
+            }
+
+            if (!friend) return null;
+
+            // If friend was not fully populated, fetch from User collection directly
+            if (typeof friend !== 'object' || !friend.username) {
+                const targetId = friend._id || friend;
+                if (mongoose.Types.ObjectId.isValid(targetId)) {
+                    friend = await User.findById(targetId).select('username avatarId bio profileVisibility onlineStatus');
                 }
+            }
 
-                if (!friend || !friend.username) return null;
+            if (!friend || !friend.username) return null;
 
-                const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
-                const isRecentlyActive = (Date.now() - new Date(friendLastSeen).getTime()) < 3 * 60 * 1000;
-                const isOnline = onlineUsers.has(String(friend._id)) || isRecentlyActive;
-                return {
-                    _id: friend._id,
-                    id: friend._id,
-                    username: friend.username,
-                    avatarId: friend.avatarId || '',
-                    bio: friend.bio || '',
-                    isOnline,
-                    lastSeen: friendLastSeen,
-                    currentlyWatching: isOnline ? isCurrentlyWatchingFresh(friend.onlineStatus?.currentlyWatching) : null,
-                    friendSince: f.acceptedAt
-                };
-            })
-            .filter(Boolean);
+            const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
+            const isRecentlyActive = (Date.now() - new Date(friendLastSeen).getTime()) < 3 * 60 * 1000;
+            const isOnline = onlineUsers.has(String(friend._id)) || isRecentlyActive;
+
+            return {
+                _id: String(friend._id),
+                id: String(friend._id),
+                username: friend.username,
+                avatarId: friend.avatarId || '',
+                bio: friend.bio || '',
+                isOnline,
+                lastSeen: friendLastSeen,
+                currentlyWatching: isOnline ? isCurrentlyWatchingFresh(friend.onlineStatus?.currentlyWatching) : null,
+                friendSince: f.acceptedAt || f.createdAt
+            };
+        }));
+
+        const validFriends = friends.filter(Boolean);
 
         // Sort: online first, then by username
-        friends.sort((a, b) => {
+        validFriends.sort((a, b) => {
             if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
             return a.username.localeCompare(b.username);
         });
 
-        res.json({ success: true, friends });
+        res.json({ success: true, friends: validFriends });
     } catch (err) {
         console.error('Friends list error:', err);
-        res.status(500).json({ error: 'Server error' });
+        res.status(500).json({ error: 'Server error', friends: [] });
     }
 });
 
