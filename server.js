@@ -2655,19 +2655,10 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
     const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
     const results = [];
 
-    const useBackendProxy = USE_TOR && torAgent;
     const getStreamProxyUrl = (targetUrl) => {
-        if (useBackendProxy) {
-            // If Tor is active, proxy the HLS stream/segments through Render's backend Tor proxy
-            // to bypass Cloudflare WAF blocks that affect Cloudflare Worker IP ranges.
-            return `${req.protocol}://${req.get('host')}/api/video-proxy?` + 
-                (embedUrl ? `referer=${encodeURIComponent(embedUrl)}&` : '') + 
-                `url=${encodeURIComponent(targetUrl)}`;
-        } else {
-            // Otherwise, route through Cloudflare Worker proxy
-            return `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy` + 
-                (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
-        }
+        return `${req.protocol}://${req.get('host')}/api/video-proxy?` + 
+            (embedUrl ? `referer=${encodeURIComponent(embedUrl)}&` : '') + 
+            `url=${encodeURIComponent(targetUrl)}`;
     };
 
     for (let index = 0; index < uniqueUrls.length; index++) {
