@@ -250,9 +250,13 @@ export const clearOldEntries = () => {
 };
 
 export const clearAllHistory = () => {
-    localStorage.removeItem(getStorageKey());
-    localStorage.removeItem('noxis_watch_history');
-    localStorage.removeItem('noxis_watch_history_guest');
+    try {
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('noxis_watch_history') || key.startsWith('noxis_user_avatar')) {
+                localStorage.removeItem(key);
+            }
+        });
+    } catch (e) {}
 };
 
 // Sayfa kapanırken bekleyen sync'i zorla gönder (navigator.sendBeacon ile)

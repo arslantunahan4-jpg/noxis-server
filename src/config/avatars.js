@@ -169,16 +169,27 @@ export const AVATARS = [
 
 export const DEFAULT_AVATAR = AVATARS[0];
 
+export const getStoredAvatarKey = () => {
+    try {
+        const userStr = localStorage.getItem('noxis_user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            const id = user?.id || user?._id || user?.username;
+            if (id) return `noxis_user_avatar_${id}`;
+        }
+    } catch (e) {}
+    return 'noxis_user_avatar_guest';
+};
+
 export const getStoredAvatar = () => {
     try {
-        const storedId = localStorage.getItem('noxis_user_avatar');
+        const key = getStoredAvatarKey();
+        const storedId = localStorage.getItem(key);
         if (storedId) {
-            const found = AVATARS.find(a => a.id === storedId);
+            const found = AVATARS.find(a => a.id === storedId || a.url?.includes(storedId));
             if (found) return found;
         }
-    } catch (e) {
-        // Fallback
-    }
+    } catch (e) {}
     return DEFAULT_AVATAR;
 };
 
@@ -213,7 +224,8 @@ const syncAvatarWithBackend = async (avatarId) => {
 
 export const setStoredAvatar = (avatarId) => {
     try {
-        localStorage.setItem('noxis_user_avatar', avatarId);
+        const key = getStoredAvatarKey();
+        localStorage.setItem(key, avatarId);
         syncAvatarWithBackend(avatarId);
     } catch (e) {
         // Fallback

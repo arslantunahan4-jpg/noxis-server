@@ -711,6 +711,9 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
             }
 
             user.lastLogin = new Date();
+            user.onlineStatus = user.onlineStatus || {};
+            user.onlineStatus.isOnline = true;
+            user.onlineStatus.lastSeen = new Date();
             user.loginHistory.push({
                 ip: req.ip,
                 userAgent: String(req.get('user-agent') || '').slice(0, 300),
