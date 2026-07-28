@@ -84,6 +84,16 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
         setInviteLoading(false);
     };
 
+    const handleDeleteList = async () => {
+        if (!window.confirm("Bu listeyi silmek istediğinize emin misiniz?")) return;
+        try {
+            await friendsService.deleteWatchlist(selectedList._id);
+            const data = await friendsService.getWatchlists();
+            setLists(data.watchlists || []);
+            setSelectedList(null);
+        } catch(e) { console.error(e); }
+    };
+
     const toggleInviteUI = async () => {
         if (!showInviteUI) {
             try {
@@ -124,7 +134,14 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                                     </span>
                                 ) : 'Ortak Listeler'}
                             </h2>
-                            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}><i className="fas fa-times" /></button>
+                            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                {selectedList && selectedList.owner._id === user?.id && (
+                                    <button onClick={handleDeleteList} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: '20px', cursor: 'pointer' }} title="Listeyi Sil">
+                                        <i className="fas fa-trash" />
+                                    </button>
+                                )}
+                                <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}><i className="fas fa-times" /></button>
+                            </div>
                         </div>
 
                         {/* Content */}
@@ -185,7 +202,7 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {selectedList.items.map(item => (
-                                                <div key={item._id} onClick={() => { onClose(); navigate(`/${item.mediaType}/${item.tmdbId}`); }} style={{ display: 'flex', gap: '15px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', cursor: 'pointer', alignItems: 'center' }}>
+                                                <div key={item._id} onClick={() => { onClose(); navigate(`/watch/${item.mediaType}/${item.tmdbId}`); }} style={{ display: 'flex', gap: '15px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', cursor: 'pointer', alignItems: 'center' }}>
                                                     {item.posterPath ? (
                                                         <img src={`https://image.tmdb.org/t/p/w92${item.posterPath}`} style={{ width: '50px', borderRadius: '8px' }} />
                                                     ) : <div style={{ width: '50px', height: '75px', background: '#333', borderRadius: '8px' }} />}

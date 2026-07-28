@@ -3882,6 +3882,20 @@ app.post('/api/watchlists/:id/add', authenticateToken, async (req, res) => {
     }
 });
 
+app.delete('/api/watchlists/:id', authenticateToken, async (req, res) => {
+    try {
+        const list = await Watchlist.findById(req.params.id);
+        if (!list) return res.status(404).json({ error: 'Not found' });
+        if (list.owner.toString() !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+        
+        await Watchlist.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete watchlist' });
+    }
+});
+
 app.post('/api/watchlists/:id/ai-suggest', authenticateToken, async (req, res) => {
     try {
         const list = await Watchlist.findById(req.params.id);
