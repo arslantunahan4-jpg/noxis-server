@@ -654,7 +654,16 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
                 userAgent: String(req.get('user-agent') || '').slice(0, 300)
             });
 
-            return res.json({ success: true, token, user: { id: user._id, username: user.username } });
+            return res.json({
+                success: true,
+                token,
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    avatarId: user.avatarId || 'tommy_shelby',
+                    bio: user.bio || ''
+                }
+            });
         }
         
         if (action === 'login') {
@@ -725,7 +734,16 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
                 userAgent: String(req.get('user-agent') || '').slice(0, 300)
             });
             
-            return res.json({ success: true, token, user: { id: user._id, username: user.username || user.name } });
+            return res.json({
+                success: true,
+                token,
+                user: {
+                    id: user._id,
+                    username: user.username || user.name,
+                    avatarId: user.avatarId || 'tommy_shelby',
+                    bio: user.bio || ''
+                }
+            });
         }
 
         if (action === 'verify') {
@@ -735,7 +753,7 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
             const session = await Session.findOne(sessionTokenQuery(token));
             if (!session) return res.status(401).json({ error: 'Session expired' });
 
-            const user = await User.findById(session.userId).select('username isActive isBanned');
+            const user = await User.findById(session.userId).select('username avatarId bio isActive isBanned');
             if (!user || user.isBanned || user.isActive === false) {
                 await Session.deleteOne({ _id: session._id });
                 return res.status(403).json({ error: 'Bu hesap devre dışı' });
@@ -743,7 +761,12 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
             
             return res.json({
                 success: true,
-                user: { id: user._id, username: user.username || session.username }
+                user: {
+                    id: user._id,
+                    username: user.username || session.username,
+                    avatarId: user.avatarId || 'tommy_shelby',
+                    bio: user.bio || ''
+                }
             });
         }
 

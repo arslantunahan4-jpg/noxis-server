@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { getApiBaseUrl } from '../../utils/apiBaseUrl';
 import { preloadImages } from '../utils/tmdbCache';
+import { setStoredAvatar } from '../../config/avatars';
 
 const API_URL = getApiBaseUrl();
 
@@ -76,6 +77,7 @@ const TvAuthPage = () => {
             localStorage.setItem('noxis_auth_verified_at', String(Date.now()));
             if (data.user) {
                 localStorage.setItem('noxis_user', JSON.stringify(data.user));
+                if (data.user.avatarId) setStoredAvatar(data.user.avatarId);
             }
 
             window.dispatchEvent(new CustomEvent('noxis-auth-changed'));

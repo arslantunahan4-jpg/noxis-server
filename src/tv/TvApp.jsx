@@ -11,6 +11,7 @@ import TvDetailPage from './pages/TvDetailPage';
 import TvAuthPage from './pages/TvAuthPage';
 
 import { syncFromBackend } from '../utils/watchHistory';
+import { setStoredAvatar } from '../config/avatars';
 
 import './tv-base.css';
 import './tv.css';
@@ -133,7 +134,10 @@ const TvApp = () => {
                     localStorage.setItem(AUTH_VERIFIED_AT_KEY, String(lastVerifiedAtRef.current));
                     setAuthStatus('authenticated');
                     setUser(data.user || null);
-                    if (data.user) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+                    if (data.user) {
+                        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+                        if (data.user.avatarId) setStoredAvatar(data.user.avatarId);
+                    }
                     if (locationRef.current.pathname === '/auth') navigate('/', { replace: true });
                     return;
                 }
