@@ -80,6 +80,18 @@ export const authApi = {
         return { success: true, user: data.user, token: data.session?.access_token };
     },
     logout: async () => {
+        try {
+            const token = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (token) {
+                await fetch(`${SERVER_URL}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                }).catch(() => {});
+            }
+        } catch (e) {}
         try { await supabase.auth.signOut(); } catch (e) {}
         clearAllHistory();
         localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -87,6 +99,7 @@ export const authApi = {
         localStorage.removeItem(WATCHED_KEY);
         localStorage.removeItem(CONTINUE_KEY);
         localStorage.removeItem('noxis_user_avatar');
+        localStorage.removeItem('noxis_user');
     },
     getToken: () => localStorage.getItem(AUTH_TOKEN_KEY), // Not strictly needed for Supabase direct calls
     getUser: () => {

@@ -15,8 +15,8 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showWrappedModal, setShowWrappedModal] = useState(false);
     const [selectedWrappedYear, setSelectedWrappedYear] = useState(() => new Date().getFullYear());
-    const [monthlyReports] = useState(() => getMonthlyAnalytics());
-    const [wrappedStats] = useState(() => getAnnualWrappedData());
+    const monthlyReports = getMonthlyAnalytics(serverProfile?.watchHistory || null);
+    const wrappedStats = getAnnualWrappedData(selectedWrappedYear, serverProfile?.watchHistory || null);
 
     // New State for tabs and social
     const [activeTab, setActiveTab] = useState('stats');

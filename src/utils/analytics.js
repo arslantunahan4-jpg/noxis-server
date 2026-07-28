@@ -368,8 +368,8 @@ export const getDeepWatchInsights = () => {
 /**
  * Monthly Analytics
  */
-export const getMonthlyAnalytics = () => {
-    const history = getWatchHistory();
+export const getMonthlyAnalytics = (customHistory = null) => {
+    const history = customHistory || getWatchHistory();
     const rawItems = Object.values(history).filter(Boolean);
     const items = rawItems.filter(isValidWatchItem);
 
@@ -419,37 +419,38 @@ export const getMonthlyAnalytics = () => {
     });
 
     return Object.values(monthlyData)
-        .map((report) => {
-            const totalHours = Math.round((report.totalSeconds / 3600) * 10) / 10;
-            let sortedGenres = Object.entries(report.genreCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([name, count]) => ({ name, count }));
-
-            if (sortedGenres.length === 0) {
-                if (report.episodesCount > 0) sortedGenres.push({ name: 'Dizi & Drama', count: report.episodesCount });
-                if (report.moviesCount > 0) sortedGenres.push({ name: 'Sinema & Aksiyon', count: report.moviesCount });
+        .map((data) => {
+            const totalHours = Math.round((data.totalSeconds / 3600) * 10) / 10;
+            let topGenre = '—';
+            let maxCount = 0;
+            Object.entries(data.genreCounts).forEach(([name, count]) => {
+                if (count > maxCount) {
+                    maxCount = count;
+                    topGenre = name;
+                }
+            });
+            if (topGenre === '—') {
+                topGenre = data.episodesCount > data.moviesCount ? 'Dizi & Drama' : 'Sinema & Aksiyon';
             }
-
-            const topGenre = sortedGenres[0]?.name || (report.episodesCount > report.moviesCount ? 'Dizi & Drama' : 'Sinema & Aksiyon');
-            const badge = getBadgeForStats(totalHours, report.episodesCount, topGenre);
+            const persona = getBadgeForStats(totalHours, data.episodesCount, topGenre);
+            const top4Items = data.items.slice(0, 4);
 
             return {
-                ...report,
+                ...data,
                 totalHours,
-                topGenres: sortedGenres.slice(0, 3),
-                topGenreName: topGenre,
-                badge
+                topGenre,
+                persona,
+                top4Items
             };
         })
-        .filter((report) => report.totalSeconds >= 180 || report.totalHours > 0)
         .sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
 };
 
 /**
  * 30 NOVEMBER ANNUAL WRAPPED CYCLE SYSTEM
  */
-export const getAnnualWrappedData = (targetYear = new Date().getFullYear()) => {
-    const history = getWatchHistory();
+export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), customHistory = null) => {
+    const history = customHistory || getWatchHistory();
     const rawItems = Object.values(history).filter(Boolean);
 
     const cycleStart = new Date(targetYear - 1, 11, 1, 0, 0, 0).getTime();

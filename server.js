@@ -753,6 +753,16 @@ app.post('/api/auth/:action', authLimiter, async (req, res) => {
         if (action === 'logout') {
             const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
             if (token && typeof token === 'string') {
+                const session = await Session.findOne(sessionTokenQuery(token));
+                if (session && session.userId) {
+                    const userIdStr = String(session.userId);
+                    onlineUsers.delete(userIdStr);
+                    await User.findByIdAndUpdate(session.userId, {
+                        'onlineStatus.isOnline': false,
+                        'onlineStatus.lastSeen': new Date(Date.now() - 10 * 60 * 1000),
+                        'onlineStatus.currentlyWatching': {}
+                    }).catch(() => {});
+                }
                 await Session.deleteMany(sessionTokenQuery(token));
             }
             return res.json({ success: true });
