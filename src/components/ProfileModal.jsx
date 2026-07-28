@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getStoredAvatar } from '../config/avatars';
+import { getStoredAvatar, getAvatarData } from '../config/avatars';
 import { getMonthlyAnalytics, getAnnualWrappedData } from '../utils/analytics';
+import { syncFromBackend } from '../utils/watchHistory';
 import { AvatarSelectorModal } from './AvatarSelectorModal';
 import { NoxisWrappedModal } from './NoxisWrappedModal';
 import { MonthlyReportCard } from './MonthlyReportCard';
@@ -40,6 +41,7 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
 
     useEffect(() => {
         if (isOpen) {
+            syncFromBackend();
             friendsService.getUserProfile(username)
                 .then(data => {
                     if (data.profile) {

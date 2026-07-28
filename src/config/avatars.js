@@ -182,6 +182,15 @@ export const getStoredAvatar = () => {
     return DEFAULT_AVATAR;
 };
 
+export const getAvatarData = (avatarId) => {
+    if (!avatarId) return AVATARS[0];
+    if (typeof avatarId === 'object' && avatarId.url) return avatarId;
+    if (typeof avatarId === 'string' && (avatarId.startsWith('/') || avatarId.startsWith('http'))) {
+        return { url: avatarId, name: 'Avatar', gradient: 'linear-gradient(135deg, #e50914, #ff3b47)' };
+    }
+    return AVATARS.find(a => a.id === avatarId || a.url?.includes(avatarId)) || AVATARS[0];
+};
+
 // Sync avatar ID with backend database so it updates across all devices
 const syncAvatarWithBackend = async (avatarId) => {
     try {
@@ -189,7 +198,7 @@ const syncAvatarWithBackend = async (avatarId) => {
         if (!token) return;
         const API_URL = getApiBaseUrl();
 
-        await fetch(`${API_URL}/api/update-profile`, {
+        await fetch(`${API_URL}/api/profile/update`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
