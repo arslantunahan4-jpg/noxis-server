@@ -31,18 +31,26 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
     const [selectedFriend, setSelectedFriend] = useState(null);
     const [friendActionLoading, setFriendActionLoading] = useState('');
 
+    const [serverProfile, setServerProfile] = useState(null);
+
     useEffect(() => {
-        if (isOpen && !profileLoaded) {
-            friendsService.getMyProfile()
+        if (isOpen) {
+            friendsService.getUserProfile(username)
                 .then(data => {
-                    setBio(data.profile.bio || '');
-                    setVisibility(data.profile.profileVisibility || 'public');
-                    setProfileLoaded(true);
+                    if (data.profile) {
+                        setServerProfile(data.profile);
+                        setBio(data.profile.bio || '');
+                        setVisibility(data.profile.profileVisibility || 'public');
+                        if (data.profile.avatarId) {
+                            const avatarData = getAvatarData(data.profile.avatarId);
+                            if (avatarData) setAvatar(avatarData);
+                        }
+                    }
                 })
                 .catch(() => {});
             loadFriends();
         }
-    }, [isOpen]);
+    }, [isOpen, username]);
 
     const loadFriends = () => {
         friendsService.getFriendsList().then(data => setFriends(data.friends)).catch(() => {});
@@ -63,7 +71,7 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
 
     if (!isOpen) return null;
 
-    const levelData = wrappedStats.userLevelData || {
+    const levelData = serverProfile?.levelData || wrappedStats.userLevelData || {
         level: 1,
         totalXP: 0,
         currentLevelXP: 0,

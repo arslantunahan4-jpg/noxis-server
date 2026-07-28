@@ -549,6 +549,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     req.user = { id: user._id, username: user.username || session.username };
+    User.findByIdAndUpdate(user._id, { 'onlineStatus.lastSeen': new Date() }).catch(() => {});
     next();
 };
 
@@ -3328,7 +3329,9 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             status: 'accepted'
         });
 
-        const isOnline = onlineUsers.has(String(targetUser._id));
+        const lastSeenDate = targetUser.onlineStatus?.lastSeen || targetUser.updatedAt || targetUser.createdAt || new Date();
+        const isRecentlyActive = (Date.now() - new Date(lastSeenDate).getTime()) < 3 * 60 * 1000;
+        const isOnline = onlineUsers.has(String(targetUser._id)) || isRecentlyActive;
 
         const profileData = {
             username: targetUser.username,
@@ -3338,7 +3341,7 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             friendshipStatus,
             friendCount,
             isOnline,
-            lastSeen: targetUser.onlineStatus?.lastSeen || targetUser.updatedAt || targetUser.createdAt || new Date(),
+            lastSeen: lastSeenDate,
             memberSince: targetUser.createdAt
         };
 
@@ -3666,13 +3669,15 @@ app.get('/api/friends/list', authenticateToken, async (req, res) => {
         const friends = friendships.map(f => {
             const friend = String(f.requester._id) === String(req.user.id)
                 ? f.recipient : f.requester;
-            const isOnline = onlineUsers.has(String(friend._id));
+            const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
+            const isRecentlyActive = (Date.now() - new Date(friendLastSeen).getTime()) < 3 * 60 * 1000;
+            const isOnline = onlineUsers.has(String(friend._id)) || isRecentlyActive;
             return {
                 username: friend.username,
                 avatarId: friend.avatarId || '',
                 bio: friend.bio || '',
                 isOnline,
-                lastSeen: friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date(),
+                lastSeen: friendLastSeen,
                 currentlyWatching: isOnline ? (friend.onlineStatus?.currentlyWatching || null) : null,
                 friendSince: f.acceptedAt
             };
