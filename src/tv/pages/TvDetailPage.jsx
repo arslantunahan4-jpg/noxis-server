@@ -394,9 +394,9 @@ const TvDetailPage = () => {
                     </div>
 
                     {showRecommendModal && (
-                        <div className="tv-recommend-overlay" onClick={() => setShowRecommendModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '24px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                <h2 style={{ margin: '0 0 20px', fontSize: '24px' }}>Kime Öneriyorsun?</h2>
+                        <div className="tv-recommend-overlay" onClick={() => setShowRecommendModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '24px', width: '90%', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <h2 style={{ margin: '0 0 20px', fontSize: '20px' }}>Kime Öneriyorsun?</h2>
                                 <input type="text" placeholder="İsteğe bağlı bir not ekle..." value={recommendMsg} onChange={e => setRecommendMsg(e.target.value)} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '12px', color: '#fff', marginBottom: '20px' }} />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                                     {friends.map(f => (
@@ -411,20 +411,20 @@ const TvDetailPage = () => {
                                             });
                                             setShowRecommendModal(false);
                                             setRecommendMsg('');
-                                        }} style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.05)', padding: '10px 15px', border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{f.username.charAt(0).toUpperCase()}</div>
-                                            <span style={{ fontSize: '18px' }}>{f.username}</span>
+                                        }} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '10px 12px', border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold' }}>{f.username.charAt(0).toUpperCase()}</div>
+                                            <span style={{ fontSize: '15px' }}>{f.username}</span>
                                         </button>
                                     ))}
-                                    {friends.length === 0 && <span style={{ color: 'rgba(255,255,255,0.5)' }}>Arkadaşın bulunmuyor.</span>}
+                                    {friends.length === 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>Arkadaşın bulunmuyor.</span>}
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {showWatchlistModal && (
-                        <div className="tv-recommend-overlay" onClick={() => setShowWatchlistModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '24px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div className="tv-recommend-overlay" onClick={() => setShowWatchlistModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '24px', borderRadius: '24px', width: '90%', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
                                 <h2 style={{ margin: '0 0 20px', fontSize: '24px' }}>Hangi Listeye Eklensin?</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
                                     {watchlists.map(list => (

@@ -3086,21 +3086,36 @@ button.tv-filter-tab.active,
 
   .tv-detail-actions {
     width: 100%;
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin-bottom: 16px;
   }
 
-  .tv-detail-actions .tv-action {
-    flex: 1;
-    min-width: 0;
+  .tv-detail-actions .tv-action-primary {
+    grid-column: span 2;
+    width: 100%;
     height: 48px;
-    min-height: 48px;
     font-size: 15px;
+  }
+
+  .tv-detail-actions .tv-action {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 8px;
+    font-size: 12px;
     font-weight: 800;
-    border-radius: 14px;
+    border-radius: 12px;
     justify-content: center;
+    gap: 6px;
+  }
+
+  .tv-detail-actions .tv-action span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .tv-season-panel {
