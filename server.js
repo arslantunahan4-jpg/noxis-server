@@ -2657,19 +2657,9 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
     const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
     const results = [];
 
-    const useBackendProxy = USE_TOR && torAgent;
     const getStreamProxyUrl = (targetUrl) => {
-        if (useBackendProxy) {
-            // If Tor is active, proxy the HLS stream/segments through Render's backend Tor proxy
-            // to bypass Cloudflare WAF blocks that affect Cloudflare Worker IP ranges.
-            return `${req.protocol}://${req.get('host')}/api/video-proxy?` + 
-                (embedUrl ? `referer=${encodeURIComponent(embedUrl)}&` : '') + 
-                `url=${encodeURIComponent(targetUrl)}`;
-        } else {
-            // Otherwise, route through Cloudflare Worker proxy
-            return `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy` + 
-                (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
-        }
+        return `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy` + 
+            (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
     };
 
     for (let index = 0; index < uniqueUrls.length; index++) {
@@ -2677,29 +2667,60 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         const qualityBase = getStreamimdbQualityLabel(playlistUrl, index);
         
         try {
-            // WE MUST ALWAYS FETCH/PARSE MANIFESTS VIA BACKEND (TOR OR DIRECT)
-            // TO BYPASS CORRUPTION/ACCESS RESTRICTIONS FROM REVENUE SITES.
-            let requestUrl = playlistUrl;
-            let proxyAgent = undefined;
+            let content = '';
 
-            if (USE_TOR && torAgent) {
-                proxyAgent = torAgent;
-            } else {
-                requestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
+            // Strategy 1: Cloudflare Worker Proxy (Ultra fast manifest fetch)
+            try {
+                const workerRequestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
                     (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+                const response = await axios.get(workerRequestUrl, {
+                    headers: getStreamimdbPlaylistHeaders(),
+                    timeout: 5000,
+                    responseType: 'text',
+                    validateStatus: (status) => status < 400
+                });
+                if (typeof response.data === 'string' && response.data.includes('#EXTM3U')) {
+                    content = response.data;
+                }
+            } catch (eWorker) {
+                console.warn(`[StreamIMDb Parse] Worker fetch failed for ${playlistUrl}, trying Tor:`, eWorker.message);
             }
 
-            const response = await axios.get(requestUrl, {
-                headers: getStreamimdbPlaylistHeaders(),
-                timeout: 8000,
-                responseType: 'text',
-                httpAgent: proxyAgent,
-                httpsAgent: proxyAgent,
-                validateStatus: (status) => status < 400
-            });
+            // Strategy 2: Tor Proxy Fallback
+            if (!content && torAgent) {
+                try {
+                    const response = await axios.get(playlistUrl, {
+                        headers: getStreamimdbPlaylistHeaders(),
+                        timeout: 8000,
+                        responseType: 'text',
+                        httpAgent: torAgent,
+                        httpsAgent: torAgent,
+                        validateStatus: (status) => status < 400
+                    });
+                    if (typeof response.data === 'string' && response.data.includes('#EXTM3U')) {
+                        content = response.data;
+                    }
+                } catch (eTor) {
+                    console.warn(`[StreamIMDb Parse] Tor fetch failed for ${playlistUrl}:`, eTor.message);
+                }
+            }
 
-            const content = typeof response.data === 'string' ? response.data : '';
-            if (content.includes('#EXTM3U')) {
+            // Strategy 3: Direct Fetch Fallback
+            if (!content) {
+                try {
+                    const response = await axios.get(playlistUrl, {
+                        headers: getStreamimdbPlaylistHeaders(),
+                        timeout: 6000,
+                        responseType: 'text',
+                        validateStatus: (status) => status < 400
+                    });
+                    if (typeof response.data === 'string' && response.data.includes('#EXTM3U')) {
+                        content = response.data;
+                    }
+                } catch (eDirect) {}
+            }
+
+            if (content && content.includes('#EXTM3U')) {
                 const masterProxiedUrl = getStreamProxyUrl(playlistUrl);
                 results.push({
                     resolution: 'auto',
