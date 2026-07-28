@@ -3699,22 +3699,29 @@ app.get('/api/friends/list', authenticateToken, async (req, res) => {
             status: 'accepted'
         }).populate('requester recipient', 'username avatarId bio profileVisibility onlineStatus');
 
-        const friends = friendships.map(f => {
-            const friend = String(f.requester._id) === String(req.user.id)
-                ? f.recipient : f.requester;
-            const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
-            const isRecentlyActive = (Date.now() - new Date(friendLastSeen).getTime()) < 3 * 60 * 1000;
-            const isOnline = onlineUsers.has(String(friend._id)) || isRecentlyActive;
-            return {
-                username: friend.username,
-                avatarId: friend.avatarId || '',
-                bio: friend.bio || '',
-                isOnline,
-                lastSeen: friendLastSeen,
-                currentlyWatching: isOnline ? isCurrentlyWatchingFresh(friend.onlineStatus?.currentlyWatching) : null,
-                friendSince: f.acceptedAt
-            };
-        });
+        const friends = friendships
+            .filter(f => f.requester && f.recipient)
+            .map(f => {
+                const isRequester = String(f.requester._id || f.requester) === String(req.user.id);
+                const friend = isRequester ? f.recipient : f.requester;
+                if (!friend || !friend.username) return null;
+
+                const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
+                const isRecentlyActive = (Date.now() - new Date(friendLastSeen).getTime()) < 3 * 60 * 1000;
+                const isOnline = onlineUsers.has(String(friend._id)) || isRecentlyActive;
+                return {
+                    _id: friend._id,
+                    id: friend._id,
+                    username: friend.username,
+                    avatarId: friend.avatarId || '',
+                    bio: friend.bio || '',
+                    isOnline,
+                    lastSeen: friendLastSeen,
+                    currentlyWatching: isOnline ? isCurrentlyWatchingFresh(friend.onlineStatus?.currentlyWatching) : null,
+                    friendSince: f.acceptedAt
+                };
+            })
+            .filter(Boolean);
 
         // Sort: online first, then by username
         friends.sort((a, b) => {
