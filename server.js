@@ -41,7 +41,7 @@ const OS = new OpenSubtitles({
 
 dotenv.config();
 
-const DEFAULT_KEEP_ALIVE_URL = 'https://noxis-web-6mz3.onrender.com';
+const DEFAULT_KEEP_ALIVE_URL = 'https://noxis-server.onrender.com';
 const DEFAULT_KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000;
 
 const parseKeepAliveInterval = (value) => {
