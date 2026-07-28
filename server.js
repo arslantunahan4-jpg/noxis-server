@@ -1544,31 +1544,50 @@ app.get('/api/video-proxy', async (req, res) => {
             targetUrl.includes('justhd.tv') ||
             targetUrl.includes('nextlevelbrandstudio.site') ||
             targetUrl.includes('premiumleadgeneration.site');
-        let requestUrl = targetUrl;
-        let proxyAgent = undefined;
 
-        if (isStreamimdb) {
-            if (USE_TOR && torAgent) {
-                proxyAgent = torAgent;
-            } else {
+        let response;
+        if (isStreamimdb && USE_TOR && torAgent) {
+            try {
+                response = await axios({
+                    method: 'get',
+                    url: targetUrl,
+                    responseType: isM3U8 ? 'text' : 'stream',
+                    headers: headers,
+                    timeout: 6000,
+                    httpAgent: torAgent,
+                    httpsAgent: torAgent,
+                    validateStatus: false
+                });
+            } catch (torErr) {
+                console.warn('[VideoProxy Tor Fallback] Tor request failed, falling back to Worker proxy:', torErr.message);
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                let fallbackUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
+                if (customReferer) fallbackUrl += `&referer=${encodeURIComponent(customReferer)}`;
+                response = await axios({
+                    method: 'get',
+                    url: fallbackUrl,
+                    responseType: isM3U8 ? 'text' : 'stream',
+                    headers: headers,
+                    timeout: 25000,
+                    validateStatus: false
+                });
+            }
+        } else {
+            let requestUrl = targetUrl;
+            if (isStreamimdb) {
                 const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
                 requestUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
-                if (customReferer) {
-                    requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
-                }
+                if (customReferer) requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
             }
+            response = await axios({
+                method: 'get',
+                url: requestUrl,
+                responseType: isM3U8 ? 'text' : 'stream',
+                headers: headers,
+                timeout: 30000,
+                validateStatus: false
+            });
         }
-
-        const response = await axios({
-            method: 'get',
-            url: requestUrl,
-            responseType: isM3U8 ? 'text' : 'stream',
-            headers: headers,
-            timeout: 30000,
-            httpAgent: proxyAgent,
-            httpsAgent: proxyAgent,
-            validateStatus: false
-        });
 
         // Set basic response headers
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -2666,26 +2685,38 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         const qualityBase = getStreamimdbQualityLabel(playlistUrl, index);
         
         try {
-            // WE MUST ALWAYS FETCH/PARSE MANIFESTS VIA BACKEND (TOR OR DIRECT)
-            // TO BYPASS CORRUPTION/ACCESS RESTRICTIONS FROM REVENUE SITES.
-            let requestUrl = playlistUrl;
-            let proxyAgent = undefined;
-
+            let response;
             if (USE_TOR && torAgent) {
-                proxyAgent = torAgent;
+                try {
+                    response = await axios.get(playlistUrl, {
+                        headers: getStreamimdbPlaylistHeaders(),
+                        timeout: 5000,
+                        responseType: 'text',
+                        httpAgent: torAgent,
+                        httpsAgent: torAgent,
+                        validateStatus: (status) => status < 400
+                    });
+                } catch (torErr) {
+                    console.warn(`[StreamIMDb Parse Tor Fallback] Tor failed for ${playlistUrl}, trying Worker:`, torErr.message);
+                    const workerReqUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
+                        (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+                    response = await axios.get(workerReqUrl, {
+                        headers: getStreamimdbPlaylistHeaders(),
+                        timeout: 8000,
+                        responseType: 'text',
+                        validateStatus: (status) => status < 400
+                    });
+                }
             } else {
-                requestUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
+                const workerReqUrl = `${workerUrl}?url=${encodeURIComponent(playlistUrl)}&mode=proxy` + 
                     (embedUrl ? `&referer=${encodeURIComponent(embedUrl)}` : '');
+                response = await axios.get(workerReqUrl, {
+                    headers: getStreamimdbPlaylistHeaders(),
+                    timeout: 8000,
+                    responseType: 'text',
+                    validateStatus: (status) => status < 400
+                });
             }
-
-            const response = await axios.get(requestUrl, {
-                headers: getStreamimdbPlaylistHeaders(),
-                timeout: 8000,
-                responseType: 'text',
-                httpAgent: proxyAgent,
-                httpsAgent: proxyAgent,
-                validateStatus: (status) => status < 400
-            });
 
             const content = typeof response.data === 'string' ? response.data : '';
             if (content.includes('#EXTM3U')) {
@@ -2778,24 +2809,38 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
     }
 
     try {
-        let requestUrl = apiUrl.toString();
-        let proxyAgent = undefined;
-
+        let response;
         if (USE_TOR && torAgent) {
-            proxyAgent = torAgent;
+            try {
+                response = await axios.get(apiUrl.toString(), {
+                    headers: getStreamimdbApiHeaders(embedUrl),
+                    timeout: 6000,
+                    responseType: 'json',
+                    httpAgent: torAgent,
+                    httpsAgent: torAgent,
+                    validateStatus: (status) => status < 500
+                });
+            } catch (torErr) {
+                console.warn('[StreamIMDb Resolve Tor Fallback] Tor request failed, falling back to Worker:', torErr.message);
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                const workerReqUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+                response = await axios.get(workerReqUrl, {
+                    headers: getStreamimdbApiHeaders(embedUrl),
+                    timeout: 10000,
+                    responseType: 'json',
+                    validateStatus: (status) => status < 500
+                });
+            }
         } else {
             const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-            requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+            const workerReqUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+            response = await axios.get(workerReqUrl, {
+                headers: getStreamimdbApiHeaders(embedUrl),
+                timeout: 10000,
+                responseType: 'json',
+                validateStatus: (status) => status < 400 || status === 404
+            });
         }
-
-        const response = await axios.get(requestUrl, {
-            headers: getStreamimdbApiHeaders(embedUrl),
-            timeout: 10000,
-            responseType: 'json',
-            httpAgent: proxyAgent,
-            httpsAgent: proxyAgent,
-            validateStatus: (status) => status < 500
-        });
 
         const payload = response.data || {};
         const isSuccess = payload.status_code === '200' || payload.status_code === 200;
