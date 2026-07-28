@@ -105,7 +105,27 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                     <span className={`noxis-friend-status-dot ${profile.isOnline ? 'online' : 'offline'}`} />
                                 </div>
                                 <h2>{profile.username}</h2>
+                                {profile.levelData?.levelInfo && (
+                                    <div className="noxis-friend-level-row">
+                                        <span className="noxis-level-badge-tag" style={{ borderColor: profile.levelData.levelInfo.color }}>
+                                            {profile.levelData.levelInfo.icon} Level {profile.levelData.level} • {profile.levelData.levelInfo.name}
+                                        </span>
+                                    </div>
+                                )}
                                 {profile.bio && <p className="noxis-friend-bio">{profile.bio}</p>}
+                                
+                                {profile.levelData && (
+                                    <div className="noxis-friend-xp-bar-wrapper">
+                                        <div className="noxis-friend-xp-labels">
+                                            <span>XP İlerlemesi</span>
+                                            <span>{profile.levelData.currentLevelXP} / {profile.levelData.nextLevelXP} XP</span>
+                                        </div>
+                                        <div className="noxis-friend-xp-track">
+                                            <div className="noxis-friend-xp-fill" style={{ width: `${profile.levelData.progressPercent}%` }} />
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="noxis-friend-meta-row">
                                     <span><i className="fas fa-users" /> {profile.friendCount} arkadaş</span>
                                     <span><i className="fas fa-calendar" /> {formatDate(profile.memberSince)}</span>
@@ -122,7 +142,7 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                         <img src={`https://image.tmdb.org/t/p/w92${profile.currentlyWatching.poster}`} alt="" />
                                     )}
                                     <div>
-                                        <span className="noxis-watching-live-badge">🔴 CANLI</span>
+                                        <span className="noxis-watching-live-badge">🔴 CANLI İZLİYOR</span>
                                         <strong>{profile.currentlyWatching.title}</strong>
                                         {profile.currentlyWatching.season && (
                                             <small>S{profile.currentlyWatching.season}E{profile.currentlyWatching.episode}</small>
@@ -131,7 +151,7 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                 </div>
                             )}
 
-                            {/* Stats (if visible) */}
+                            {/* Stats */}
                             {profile.stats && (
                                 <div className="noxis-friend-stats-grid">
                                     <div className="noxis-friend-stat">
@@ -149,6 +169,50 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                     <div className="noxis-friend-stat">
                                         <strong>{profile.stats.totalWatched}</strong>
                                         <span>Toplam</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Badges / Başarımlar */}
+                            {profile.levelData?.badges?.length > 0 && (
+                                <div className="noxis-friend-badges-section">
+                                    <h4><i className="fas fa-medal" /> Kazanılan Başarımlar</h4>
+                                    <div className="noxis-friend-badges-grid">
+                                        {profile.levelData.badges.map((b, i) => (
+                                            <div key={i} className="noxis-friend-badge-card" title={b.desc}>
+                                                <span className="noxis-badge-icon">{b.icon}</span>
+                                                <strong>{b.name}</strong>
+                                                <small>{b.desc}</small>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Recent Watched Items (WITHOUT completion percentage) */}
+                            {profile.recentWatched?.length > 0 && (
+                                <div className="noxis-friend-recent-section">
+                                    <h4><i className="fas fa-history" /> Son İzledikleri</h4>
+                                    <div className="noxis-friend-recent-list">
+                                        {profile.recentWatched.map((item, idx) => (
+                                            <div key={idx} className="noxis-friend-recent-item">
+                                                {item.poster_path ? (
+                                                    <img
+                                                        src={item.poster_path.startsWith('/') ? `https://image.tmdb.org/t/p/w92${item.poster_path}` : item.poster_path}
+                                                        alt={item.title}
+                                                    />
+                                                ) : (
+                                                    <div className="noxis-recent-no-poster"><i className="fas fa-film" /></div>
+                                                )}
+                                                <div className="noxis-friend-recent-info">
+                                                    <strong>{item.title}</strong>
+                                                    <span>
+                                                        {item.season ? `S${item.season}E${item.episode}` : 'Film'}
+                                                        {item.updatedAt && ` • ${timeAgo(item.updatedAt)}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}

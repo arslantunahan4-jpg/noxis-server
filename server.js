@@ -3353,6 +3353,54 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
                 totalHours: Math.round(entries.reduce((sum, e) => sum + ((e.currentTime || 0) / 3600), 0))
             };
 
+            // Calculate Level, XP, Unvan & Badges
+            const totalHours = profileData.stats.totalHours;
+            const movieCount = profileData.stats.movieCount;
+            const episodeCount = profileData.stats.episodeCount;
+
+            const totalXP = Math.floor(totalHours * 12 + movieCount * 8 + episodeCount * 3);
+            const level = Math.floor(totalXP / 250) + 1;
+            const currentLevelXP = totalXP % 250;
+            const nextLevelXP = 250;
+            const progressPercent = Math.min(100, Math.round((currentLevelXP / nextLevelXP) * 100));
+
+            let levelTitle = { name: 'Sinema Kaşifi', icon: '🍿', color: '#10b981' };
+            if (level >= 15) levelTitle = { name: 'Sinema Profesörü', icon: '🎓', color: '#ec4899' };
+            else if (level >= 10) levelTitle = { name: 'Multiverse Gezgini', icon: '🌌', color: '#a855f7' };
+            else if (level >= 7) levelTitle = { name: 'Sezon Kapatan Canavar', icon: '📺', color: '#3b82f6' };
+            else if (level >= 4) levelTitle = { name: 'Dopamin Avcısı', icon: '🔥', color: '#f59e0b' };
+
+            const badges = [];
+            if (totalHours >= 50) badges.push({ name: 'Gece Yarısı Gurmesi', icon: '🌙', desc: '50+ Saat İzleme' });
+            if (movieCount >= 10) badges.push({ name: 'Film Tutkunu', icon: '🎬', desc: '10+ Film Tamamlandı' });
+            if (episodeCount >= 25) badges.push({ name: 'Dizi Canavarı', icon: '📺', desc: '25+ Bölüm İzlendi' });
+            if (totalHours >= 100) badges.push({ name: 'Efsane İzleyici', icon: '🏆', desc: '100+ Saat İzleme' });
+
+            profileData.levelData = {
+                level,
+                totalXP,
+                currentLevelXP,
+                nextLevelXP,
+                progressPercent,
+                levelInfo: levelTitle,
+                badges
+            };
+
+            // Recent Watched Items (WITHOUT completion percentage)
+            const sortedEntries = entries
+                .filter(e => e && e.title)
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+                .slice(0, 4);
+
+            profileData.recentWatched = sortedEntries.map(e => ({
+                title: e.title,
+                poster_path: e.poster_path || null,
+                media_type: e.media_type || (e.season ? 'tv' : 'movie'),
+                season: e.season || null,
+                episode: e.episode || null,
+                updatedAt: e.updatedAt || null
+            }));
+
             // Currently watching
             if (isOnline && targetUser.onlineStatus?.currentlyWatching?.title) {
                 profileData.currentlyWatching = targetUser.onlineStatus.currentlyWatching;
