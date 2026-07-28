@@ -3548,6 +3548,8 @@ app.get('/api/friends/search', authenticateToken, async (req, res) => {
         });
 
         const results = users.map(u => ({
+            _id: u._id,
+            id: u._id,
             username: u.username,
             avatarId: u.avatarId || '',
             bio: u.bio || '',
@@ -3568,7 +3570,11 @@ app.post('/api/friends/request', authenticateToken, async (req, res) => {
         const { username } = req.body;
         if (!username) return res.status(400).json({ error: 'Username required' });
 
-        const recipient = await User.findOne({ username: username.toLowerCase() }).select('_id username');
+        const cleanName = String(username).trim();
+        const recipient = await User.findOne({
+            username: { $regex: `^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+        }).select('_id username');
+
         if (!recipient) return res.status(404).json({ error: 'User not found' });
         if (String(recipient._id) === String(req.user.id)) {
             return res.status(400).json({ error: 'Cannot send request to yourself' });
@@ -3640,11 +3646,19 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
         const { requestId } = req.body;
         if (!requestId) return res.status(400).json({ error: 'Request ID required' });
 
-        const friendship = await Friendship.findOne({
+        let friendship = await Friendship.findOne({
             _id: requestId,
             recipient: req.user.id,
             status: 'pending'
         });
+
+        if (!friendship && mongoose.Types.ObjectId.isValid(requestId)) {
+            friendship = await Friendship.findOne({
+                requester: requestId,
+                recipient: req.user.id,
+                status: 'pending'
+            });
+        }
 
         if (!friendship) return res.status(404).json({ error: 'Request not found' });
 
@@ -3673,11 +3687,19 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
 app.post('/api/friends/reject', authenticateToken, async (req, res) => {
     try {
         const { requestId } = req.body;
-        const friendship = await Friendship.findOne({
+        let friendship = await Friendship.findOne({
             _id: requestId,
             recipient: req.user.id,
             status: 'pending'
         });
+
+        if (!friendship && mongoose.Types.ObjectId.isValid(requestId)) {
+            friendship = await Friendship.findOne({
+                requester: requestId,
+                recipient: req.user.id,
+                status: 'pending'
+            });
+        }
 
         if (!friendship) return res.status(404).json({ error: 'Request not found' });
 
@@ -3694,16 +3716,23 @@ app.post('/api/friends/reject', authenticateToken, async (req, res) => {
 // POST /api/friends/remove - Remove friend
 app.post('/api/friends/remove', authenticateToken, async (req, res) => {
     try {
-        const { username } = req.body;
-        if (!username) return res.status(400).json({ error: 'Username required' });
+        const { username, friendId } = req.body;
+        let targetUserId = friendId;
 
-        const targetUser = await User.findOne({ username: username.toLowerCase() }).select('_id');
-        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+        if (!targetUserId && username) {
+            const cleanName = String(username).trim();
+            const targetUser = await User.findOne({
+                username: { $regex: `^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+            }).select('_id');
+            if (targetUser) targetUserId = targetUser._id;
+        }
+
+        if (!targetUserId) return res.status(404).json({ error: 'User not found' });
 
         await Friendship.findOneAndDelete({
             $or: [
-                { requester: req.user.id, recipient: targetUser._id, status: 'accepted' },
-                { requester: targetUser._id, recipient: req.user.id, status: 'accepted' }
+                { requester: req.user.id, recipient: targetUserId, status: 'accepted' },
+                { requester: targetUserId, recipient: req.user.id, status: 'accepted' }
             ]
         });
 
