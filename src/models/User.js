@@ -87,7 +87,6 @@ UserSchema.methods.toJSON = function() {
     delete user.password;
     delete user.twoFactorSecret;
     delete user.twoFactorBackupCodes;
-    delete user.onlineStatus;
     return user;
 };
 

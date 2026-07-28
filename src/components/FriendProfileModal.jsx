@@ -129,8 +129,14 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                 <div className="noxis-friend-meta-row">
                                     <span><i className="fas fa-users" /> {profile.friendCount} arkadaş</span>
                                     <span><i className="fas fa-calendar" /> {formatDate(profile.memberSince)}</span>
-                                    {!profile.isOnline && profile.lastSeen && (
-                                        <span><i className="fas fa-clock" /> {timeAgo(profile.lastSeen)}</span>
+                                    {profile.isOnline ? (
+                                        <span style={{ color: '#10b981', fontWeight: 600 }}>
+                                            <i className="fas fa-circle" style={{ fontSize: '9px' }} /> Çevrimiçi
+                                        </span>
+                                    ) : (
+                                        <span>
+                                            <i className="fas fa-clock" /> Son görülme: {profile.lastSeen ? timeAgo(profile.lastSeen) : 'Az önce'}
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -173,16 +179,30 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                 </div>
                             )}
 
-                            {/* Badges / Başarımlar */}
+                            {/* Badges / Başarımlar (12 Rozet) */}
                             {profile.levelData?.badges?.length > 0 && (
                                 <div className="noxis-friend-badges-section">
-                                    <h4><i className="fas fa-medal" /> Kazanılan Başarımlar</h4>
+                                    <div className="noxis-section-title-group" style={{ marginBottom: '12px' }}>
+                                        <h4 style={{ fontSize: '15px', fontWeight: '800', margin: 0 }}>
+                                            <i className="fas fa-award" style={{ color: '#e50914' }} /> Sinema Başarımları ({profile.levelData.badges.filter(b => b.unlocked).length} / {profile.levelData.badges.length})
+                                        </h4>
+                                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', margin: '2px 0 0 0' }}>
+                                            Film ve dizi izledikçe kilitleri açılan özel başarım rozetleri
+                                        </p>
+                                    </div>
                                     <div className="noxis-friend-badges-grid">
-                                        {profile.levelData.badges.map((b, i) => (
-                                            <div key={i} className="noxis-friend-badge-card" title={b.desc}>
-                                                <span className="noxis-badge-icon">{b.icon}</span>
-                                                <strong>{b.name}</strong>
-                                                <small>{b.desc}</small>
+                                        {profile.levelData.badges.map((badge, i) => (
+                                            <div
+                                                key={badge.id || i}
+                                                className={`noxis-friend-badge-card ${badge.unlocked ? 'unlocked' : 'locked'}`}
+                                                title={badge.desc}
+                                            >
+                                                <div className="noxis-badge-card-icon-row">
+                                                    <span className="noxis-badge-icon">{badge.icon || (badge.unlocked ? '🏆' : '🔒')}</span>
+                                                    {badge.unlocked && <i className="fas fa-check noxis-badge-check" />}
+                                                </div>
+                                                <strong>{badge.title || badge.name}</strong>
+                                                <small>{badge.unlocked ? badge.desc : 'Henüz Kazanılmadı'}</small>
                                             </div>
                                         ))}
                                     </div>

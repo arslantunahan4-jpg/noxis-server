@@ -6614,3 +6614,76 @@ button.tv-btn-toggle-filters:hover,
     font-size: 11px !important;
     color: rgba(255, 255, 255, 0.5) !important;
 }
+
+
+/* ==========================================================================
+   12 CINEMA BADGES GRID (PROFILE & FRIEND PROFILE MODAL)
+   ========================================================================== */
+.noxis-friend-badges-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+}
+
+.noxis-friend-badge-card {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+    transition: all 0.25 ease !important;
+}
+
+.noxis-friend-badge-card.unlocked {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+.noxis-friend-badge-card.locked {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid rgba(255, 255, 255, 0.04) !important;
+    opacity: 0.45 !important;
+}
+
+.noxis-badge-card-icon-row {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 8px !important;
+}
+
+.noxis-badge-card-icon-row .noxis-badge-icon {
+    font-size: 24px !important;
+}
+
+.noxis-badge-check {
+    color: #10b981 !important;
+    font-size: 11px !important;
+    background: rgba(16, 185, 129, 0.15) !important;
+    padding: 3px !important;
+    border-radius: 50% !important;
+}
+
+.noxis-friend-badge-card strong {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin-bottom: 3px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+}
+
+.noxis-friend-badge-card small {
+    font-size: 10px !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+    line-height: 1.25 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+}

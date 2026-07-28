@@ -3338,7 +3338,7 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             friendshipStatus,
             friendCount,
             isOnline,
-            lastSeen: targetUser.onlineStatus?.lastSeen || null,
+            lastSeen: targetUser.onlineStatus?.lastSeen || targetUser.updatedAt || targetUser.createdAt || new Date(),
             memberSince: targetUser.createdAt
         };
 
@@ -3353,28 +3353,50 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
                 totalHours: Math.round(entries.reduce((sum, e) => sum + ((e.currentTime || 0) / 3600), 0))
             };
 
-            // Calculate Level, XP, Unvan & Badges
+            // Calculate Level, XP, Unvan & 12 Badges (Identical to analytics.js)
             const totalHours = profileData.stats.totalHours;
             const movieCount = profileData.stats.movieCount;
             const episodeCount = profileData.stats.episodeCount;
+            const completedTotal = movieCount + episodeCount;
 
-            const totalXP = Math.floor(totalHours * 12 + movieCount * 8 + episodeCount * 3);
+            const totalXP = Math.round(totalHours * 100) + (episodeCount * 25) + (movieCount * 40);
             const level = Math.floor(totalXP / 250) + 1;
             const currentLevelXP = totalXP % 250;
-            const nextLevelXP = 250;
-            const progressPercent = Math.min(100, Math.round((currentLevelXP / nextLevelXP) * 100));
+            const progressPercent = Math.min(100, Math.round((currentLevelXP / 250) * 100));
 
-            let levelTitle = { name: 'Sinema Kaşifi', icon: '🍿', color: '#10b981' };
-            if (level >= 15) levelTitle = { name: 'Sinema Profesörü', icon: '🎓', color: '#ec4899' };
-            else if (level >= 10) levelTitle = { name: 'Multiverse Gezgini', icon: '🌌', color: '#a855f7' };
-            else if (level >= 7) levelTitle = { name: 'Sezon Kapatan Canavar', icon: '📺', color: '#3b82f6' };
-            else if (level >= 4) levelTitle = { name: 'Dopamin Avcısı', icon: '🔥', color: '#f59e0b' };
+            const getLevelTitle = (lvl) => {
+                if (lvl >= 10) return { name: 'Final Boss', icon: '👑', color: '#f59e0b' };
+                if (lvl >= 7) return { name: 'Sinema Gurmesi', icon: '💎', color: '#a855f7' };
+                if (lvl >= 5) return { name: 'Maraton Avcısı', icon: '🔥', color: '#ef4444' };
+                if (lvl >= 3) return { name: 'Binge Watching', icon: '📺', color: '#3b82f6' };
+                return { name: 'Cinema Starter', icon: '🍿', color: '#10b981' };
+            };
 
-            const badges = [];
-            if (totalHours >= 50) badges.push({ name: 'Gece Yarısı Gurmesi', icon: '🌙', desc: '50+ Saat İzleme' });
-            if (movieCount >= 10) badges.push({ name: 'Film Tutkunu', icon: '🎬', desc: '10+ Film Tamamlandı' });
-            if (episodeCount >= 25) badges.push({ name: 'Dizi Canavarı', icon: '📺', desc: '25+ Bölüm İzlendi' });
-            if (totalHours >= 100) badges.push({ name: 'Efsane İzleyici', icon: '🏆', desc: '100+ Saat İzleme' });
+            const hasLateNightWatch = entries.some(e => {
+                if (!e.updatedAt) return false;
+                const h = new Date(e.updatedAt).getHours();
+                return h >= 23 || h < 4;
+            });
+            const hasWeekendWatch = entries.some(e => {
+                if (!e.updatedAt) return false;
+                const day = new Date(e.updatedAt).getDay();
+                return day === 0 || day === 6;
+            });
+
+            const allBadges = [
+                { id: 'first_watch', title: 'Origin Story', desc: 'İlk içeriğini %85+ oranında bitirdin.', icon: '🎬', unlocked: completedTotal >= 1 },
+                { id: 'night_owl', title: '3 AM Demon', desc: 'Gece 23:00 - 04:00 saatlerinde ekran başındaydın.', icon: '🌙', unlocked: hasLateNightWatch },
+                { id: 'binge_master', title: 'Binge God', desc: 'En az 10 dizi bölümünü tek hamlede bitirdin.', icon: '📺', unlocked: episodeCount >= 10 },
+                { id: 'movie_buff', title: 'Movie Addict', desc: 'En az 5 film tamamladın.', icon: '🍿', unlocked: movieCount >= 5 },
+                { id: 'marathon_hero', title: 'Unstoppable', desc: '24 saati aşan ekran süresine ulaştın.', icon: '⚡', unlocked: totalHours >= 24 },
+                { id: 'sci_fi_explorer', title: 'Cyberpunk', desc: 'Bilim kurgu türünde takıldın.', icon: '🚀', unlocked: false },
+                { id: 'action_junkie', title: 'Adrenalin Overdose', desc: 'Aksiyon/Macera türünde 5+ içerik izledin.', icon: '🔥', unlocked: false },
+                { id: 'genre_guru', title: 'Aura Master', desc: '5 farklı türde takıldın.', icon: '🎯', unlocked: false },
+                { id: 'weekend_warrior', title: 'Weekend Chill', desc: 'Haftasonu maraton modunu açtın.', icon: '📅', unlocked: hasWeekendWatch },
+                { id: 'cinephile_master', title: 'Letterboxd Boss', desc: '50 saatten fazla sinema mesaisi yaptın.', icon: '👑', unlocked: totalHours >= 50 },
+                { id: 'completionist', title: 'Skip Yok!', desc: 'İçeriklerin %80+ kısmını bitiriyorsun.', icon: '🎯', unlocked: completedTotal >= 3 },
+                { id: 'cult_collector', title: 'Archivist', desc: 'Toplamda 20+ içerik tamamladın.', icon: '💎', unlocked: completedTotal >= 20 }
+            ];
 
             profileData.levelData = {
                 level,
@@ -3647,7 +3669,7 @@ app.get('/api/friends/list', authenticateToken, async (req, res) => {
                 avatarId: friend.avatarId || '',
                 bio: friend.bio || '',
                 isOnline,
-                lastSeen: friend.onlineStatus?.lastSeen || null,
+                lastSeen: friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date(),
                 currentlyWatching: isOnline ? (friend.onlineStatus?.currentlyWatching || null) : null,
                 friendSince: f.acceptedAt
             };
