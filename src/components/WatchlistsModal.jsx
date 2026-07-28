@@ -142,7 +142,7 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                         }}
                     >
                         {/* Header */}
-                        <div style={{ padding: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="watchlists-drawer-header" style={{ padding: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>
                                 {selectedList ? (
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => setSelectedList(null)}>
@@ -161,7 +161,7 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                         </div>
 
                         {/* Content */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '30px' }}>
+                        <div className="watchlists-drawer-content" style={{ flex: 1, overflowY: 'auto', padding: '30px' }}>
                             {loading ? (
                                 <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', marginTop: '50px' }}><i className="fas fa-spinner fa-spin" style={{ fontSize: '24px' }} /></div>
                             ) : selectedList ? (
