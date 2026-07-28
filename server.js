@@ -17,8 +17,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { findSource } from './src/services/scraperManager.js';
 import { resolveDizimom } from './src/utils/dizimom-resolver.js';
-
-import { Friendship } from './src/models/Friendship.js';
 import { Watchlist } from './src/models/Watchlist.js';
 import { Notification } from './src/models/Notification.js';
 
