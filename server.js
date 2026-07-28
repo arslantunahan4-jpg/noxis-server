@@ -2783,92 +2783,37 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
         apiUrl.searchParams.set('episode', episode);
     }
 
-    let payload = null;
-
-    // Strategy 1: Cloudflare Worker Proxy
     try {
-        const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-        const requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+        let requestUrl = apiUrl.toString();
+        let proxyAgent = undefined;
+
+        if (USE_TOR && torAgent) {
+            proxyAgent = torAgent;
+        } else {
+            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+            requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+        }
+
         const response = await axios.get(requestUrl, {
             headers: getStreamimdbApiHeaders(embedUrl),
-            timeout: 8000,
+            timeout: 10000,
             responseType: 'json',
+            httpAgent: proxyAgent,
+            httpsAgent: proxyAgent,
             validateStatus: (status) => status < 500
         });
-        if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
-            payload = response.data;
-        }
-    } catch (e1) {
-        console.warn('[StreamIMDb Resolver] Strategy 1 (Worker) failed:', e1.message);
-    }
 
-    // Strategy 2: Direct Fetch
-    if (!payload) {
-        try {
-            const response = await axios.get(apiUrl.toString(), {
-                headers: getStreamimdbApiHeaders(embedUrl),
-                timeout: 8000,
-                responseType: 'json',
-                validateStatus: (status) => status < 500
-            });
-            if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
-                payload = response.data;
-            }
-        } catch (e2) {
-            console.warn('[StreamIMDb Resolver] Strategy 2 (Direct) failed:', e2.message);
-        }
-    }
-
-    // Strategy 3: Tor Proxy (if enabled and available)
-    if (!payload && USE_TOR && torAgent) {
-        try {
-            const response = await axios.get(apiUrl.toString(), {
-                headers: getStreamimdbApiHeaders(embedUrl),
-                timeout: 10000,
-                responseType: 'json',
-                httpAgent: torAgent,
-                httpsAgent: torAgent,
-                validateStatus: (status) => status < 500
-            });
-            if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
-                payload = response.data;
-            }
-        } catch (e3) {
-            console.warn('[StreamIMDb Resolver] Strategy 3 (Tor) failed:', e3.message);
-        }
-    }
-
-    const fallbackResult = {
-        source: 'streamimdb',
-        wrapperUrl,
-        embedUrl,
-        streamDataApiUrl: apiUrl.toString(),
-        title: null,
-        fileName: null,
-        backdrop: null,
-        videos: [],
-        audios: [],
-        workingAudio: null,
-        audioSwitchStrategy: 'none',
-        subtitles: [],
-        hasTurkishAudio: false,
-        hasTurkishSub: false,
-        fallbackToEmbed: true
-    };
-
-    if (!payload) {
-        return res.json({ success: true, ...fallbackResult });
-    }
-
-    try {
+        const payload = response.data || {};
+        const isSuccess = payload.status_code === '200' || payload.status_code === 200;
         const streamUrls = Array.isArray(payload.data?.stream_urls) ? payload.data.stream_urls : [];
-        if (streamUrls.length === 0) {
-            return res.json({ success: true, ...fallbackResult });
+
+        if (!isSuccess || streamUrls.length === 0) {
+            return res.json({ success: false, error: 'Kaynak bulunamadı', source: 'streamimdb', wrapperUrl, embedUrl });
         }
 
         const videos = await normalizeStreamimdbVideos(streamUrls, req, embedUrl);
         if (videos.length === 0) {
-            return res.json({ success: true, ...fallbackResult });
+            return res.json({ success: false, error: 'Kaynak bulunamadı', source: 'streamimdb', wrapperUrl, embedUrl });
         }
 
         const subtitles = normalizeStreamimdbSubtitles(payload.default_subs || [], req);
@@ -2892,8 +2837,8 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
         streamimdbCache.set(cacheKey, result);
         return res.json({ success: true, ...result });
     } catch (e) {
-        console.error('[StreamIMDb Resolver] Parse error:', e.message);
-        return res.json({ success: true, ...fallbackResult });
+        console.error('[StreamIMDb Resolver] Error:', e.message);
+        return res.json({ success: false, error: e.message, source: 'streamimdb', wrapperUrl, embedUrl });
     }
 });
 

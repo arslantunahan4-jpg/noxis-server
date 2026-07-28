@@ -667,7 +667,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             // ===== STEP 3: Try StreamIMDb via Backend API =====
             if (imdbId) {
                 const streamimdbController = new AbortController();
-                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 22000);
+                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
 
                 try {
                     const streamimdbSource = await findStreamimdbSource(
@@ -2125,7 +2125,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
             // Step 3: Try StreamIMDb via Backend API
             if (imdbId && !cancelled) {
                 const streamimdbController = new AbortController();
-                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 22000);
+                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
 
                 try {
                     const sources = await findStreamimdbSource(

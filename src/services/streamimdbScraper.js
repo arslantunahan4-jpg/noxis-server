@@ -39,24 +39,21 @@ export const findStreamimdbSource = async (
         if (!response.ok) return null;
 
         const data = await response.json();
-        if (!data?.success) return null;
-
-        const firstVideo = (Array.isArray(data.videos) && data.videos.length > 0) ? data.videos[0].url : null;
-        const fallbackUrl = data.wrapperUrl || data.embedUrl || null;
-
-        if (!firstVideo && !fallbackUrl) return null;
+        if (!data?.success || !Array.isArray(data.videos) || data.videos.length === 0) {
+            return null;
+        }
 
         return {
-            url: firstVideo || fallbackUrl,
-            original: firstVideo || fallbackUrl,
-            videos: data.videos || [],
+            url: data.videos[0].url,
+            original: data.videos[0].url,
+            videos: data.videos,
             subtitles: data.subtitles || [],
             title: data.title || null,
             fileName: data.fileName || null,
             backdrop: data.backdrop || null,
             wrapperUrl: data.wrapperUrl || null,
             embedUrl: data.embedUrl || null,
-            resolvedBy: firstVideo ? 'backend' : 'embed_fallback'
+            resolvedBy: 'backend'
         };
     } catch (error) {
         if (error?.name !== 'AbortError') {
