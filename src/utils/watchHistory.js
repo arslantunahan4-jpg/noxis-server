@@ -10,7 +10,19 @@ import { getApiBaseUrl } from './apiBaseUrl';
  * 4. Throttled sync - çok sık backend çağrısı yapılmaz
  */
 
-const STORAGE_KEY = 'noxis_watch_history';
+export const getStorageKey = () => {
+    try {
+        const token = localStorage.getItem('noxis_auth_token');
+        const userStr = localStorage.getItem('noxis_user');
+        if (token && userStr) {
+            const user = JSON.parse(userStr);
+            const identifier = user?.id || user?._id || user?.username || user?.email;
+            if (identifier) return `noxis_watch_history_${identifier}`;
+        }
+    } catch (e) {}
+    return 'noxis_watch_history_guest';
+};
+
 const MAX_HISTORY_ITEMS = 500; // PERFORMANCE: Maksimum kayıt sayısı
 const SYNC_THROTTLE_MS = 10000; // 10 saniyede bir sync (cihazlar arası senkronizasyon için)
 
@@ -66,7 +78,7 @@ export const syncFromBackend = async () => {
             // PERFORMANCE: Prune before saving
             merged = pruneOldEntries(merged);
 
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+            localStorage.setItem(getStorageKey(), JSON.stringify(merged));
             console.log('[WatchHistory] Synced from backend');
         }
     } catch (e) {
@@ -113,7 +125,7 @@ setInterval(() => {
 
 export const getWatchHistory = () => {
     try {
-        const data = localStorage.getItem(STORAGE_KEY);
+        const data = localStorage.getItem(getStorageKey());
         return data ? JSON.parse(data) : {};
     } catch {
         return {};
@@ -155,7 +167,7 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
         // PERFORMANCE: Kayıt sayısını kontrol et
         history = pruneOldEntries(history);
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        localStorage.setItem(getStorageKey(), JSON.stringify(history));
 
         // Her kayıtta backend sync'i tetikle (throttle zaten korur)
         syncItemWithBackend(history[key]);
@@ -165,7 +177,7 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
         const entries = Object.entries(history);
         entries.sort((a, b) => (b[1].updatedAt || 0) - (a[1].updatedAt || 0));
         history = Object.fromEntries(entries.slice(0, Math.floor(MAX_HISTORY_ITEMS / 2)));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        localStorage.setItem(getStorageKey(), JSON.stringify(history));
     }
 };
 
@@ -191,7 +203,7 @@ export const markAsWatched = (imdbId, season = null, episode = null, metadata = 
 
     history[key] = data;
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    localStorage.setItem(getStorageKey(), JSON.stringify(history));
     syncItemWithBackend(data);
 };
 
@@ -234,11 +246,13 @@ export const clearOldEntries = () => {
         Object.entries(history).filter(([_, item]) => item.updatedAt > thirtyDaysAgo)
     );
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    localStorage.setItem(getStorageKey(), JSON.stringify(filtered));
 };
 
 export const clearAllHistory = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey());
+    localStorage.removeItem('noxis_watch_history');
+    localStorage.removeItem('noxis_watch_history_guest');
 };
 
 // Sayfa kapanırken bekleyen sync'i zorla gönder (navigator.sendBeacon ile)

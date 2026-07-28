@@ -3377,7 +3377,7 @@ app.get('/api/friends/search', authenticateToken, async (req, res) => {
         const users = await User.find({
             username: { $regex: q, $options: 'i' },
             _id: { $ne: req.user.id },
-            isActive: true,
+            isActive: { $ne: false },
             isBanned: { $ne: true }
         })
         .select('username avatarId bio profileVisibility')

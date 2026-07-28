@@ -1,4 +1,4 @@
-import { syncFromBackend } from '../utils/watchHistory';
+import { syncFromBackend, clearAllHistory } from '../utils/watchHistory';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getApiBaseUrl } from '../utils/apiBaseUrl';
@@ -80,13 +80,13 @@ export const authApi = {
         return { success: true, user: data.user, token: data.session?.access_token };
     },
     logout: async () => {
-        await supabase.auth.signOut();
+        try { await supabase.auth.signOut(); } catch (e) {}
+        clearAllHistory();
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem(AUTH_USER_KEY);
-        // Optional: clear user data? No, keep it for offline/guest feel or clear it.
-        // Let's clear to ensure privacy on shared devices.
         localStorage.removeItem(WATCHED_KEY);
         localStorage.removeItem(CONTINUE_KEY);
+        localStorage.removeItem('noxis_user_avatar');
     },
     getToken: () => localStorage.getItem(AUTH_TOKEN_KEY), // Not strictly needed for Supabase direct calls
     getUser: () => {
