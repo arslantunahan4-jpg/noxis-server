@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Hls from 'hls.js';
-import { saveProgress, getProgress, forceSyncBeforeUnload } from '../../utils/watchHistory';
+import { saveProgress, getProgress, forceSyncBeforeUnload, clearCurrentlyWatchingActivity } from '../../utils/watchHistory';
 import { usePartySocket } from '../../hooks/usePartySocket';
 import { useCasting } from '../../hooks/useCasting';
 import { PartyModal } from './PartyModal';
@@ -544,6 +544,12 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
     useEffect(() => {
         playbackErrorContextRef.current = { onPlaybackError, currentStreamUrl, streamUrl };
     }, [onPlaybackError, currentStreamUrl, streamUrl]);
+
+    useEffect(() => {
+        return () => {
+            clearCurrentlyWatchingActivity();
+        };
+    }, []);
 
     useEffect(() => {
         durationRef.current = duration;

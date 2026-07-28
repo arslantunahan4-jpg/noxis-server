@@ -3762,15 +3762,17 @@ app.post('/api/friends/activity', authenticateToken, async (req, res) => {
     try {
         const { title, imdbId, poster, season, episode } = req.body;
 
+        const watchingData = title ? {
+            title: title,
+            imdbId: imdbId || '',
+            poster: poster || '',
+            season: season || null,
+            episode: episode || null,
+            updatedAt: new Date()
+        } : {};
+
         await User.findByIdAndUpdate(req.user.id, {
-            'onlineStatus.currentlyWatching': {
-                title: title || '',
-                imdbId: imdbId || '',
-                poster: poster || '',
-                season: season || null,
-                episode: episode || null,
-                updatedAt: new Date()
-            }
+            'onlineStatus.currentlyWatching': watchingData
         });
 
         // Broadcast to friends via Socket.IO

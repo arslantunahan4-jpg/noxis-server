@@ -187,6 +187,26 @@ const syncCurrentlyWatchingActivity = (item) => {
                 episode: item.episode
             })
         }).catch(() => {});
+};
+
+export const clearCurrentlyWatchingActivity = () => {
+    try {
+        const token = getUserToken();
+        if (!token) return;
+        fetch(`${API_URL}/api/friends/activity`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                title: '',
+                imdbId: '',
+                poster: '',
+                season: null,
+                episode: null
+            })
+        }).catch(() => {});
     } catch (e) {}
 };
 
