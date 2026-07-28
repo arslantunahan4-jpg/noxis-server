@@ -26,9 +26,14 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
-const USE_TOR = process.env.USE_TOR === 'true';
-const TOR_SOCKS_PROXY = process.env.TOR_SOCKS_PROXY || 'socks5://127.0.0.1:9050';
-const torAgent = USE_TOR ? new SocksProxyAgent(TOR_SOCKS_PROXY) : undefined;
+const USE_TOR = process.env.USE_TOR !== 'false';
+const TOR_SOCKS_PROXY = process.env.TOR_SOCKS_PROXY || 'socks5h://127.0.0.1:9050';
+let torAgent = undefined;
+try {
+    torAgent = new SocksProxyAgent(TOR_SOCKS_PROXY);
+} catch (e) {
+    console.warn('[Tor] SocksProxyAgent init error:', e.message);
+}
 // Social: Online users tracking (userId -> Set of socketIds)
 const onlineUsers = new Map();
 
@@ -2783,31 +2788,70 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
         apiUrl.searchParams.set('episode', episode);
     }
 
-    try {
-        let requestUrl = apiUrl.toString();
-        let proxyAgent = undefined;
+    let payload = null;
 
-        if (USE_TOR && torAgent) {
-            proxyAgent = torAgent;
-        } else {
-            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
-            requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+    // Strategy 1: Tor Proxy (Primary route for StreamIMDb bypass)
+    if (torAgent) {
+        try {
+            const response = await axios.get(apiUrl.toString(), {
+                headers: getStreamimdbApiHeaders(embedUrl),
+                timeout: 10000,
+                responseType: 'json',
+                httpAgent: torAgent,
+                httpsAgent: torAgent,
+                validateStatus: (status) => status < 500
+            });
+            if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
+                payload = response.data;
+            }
+        } catch (eTor) {
+            console.warn('[StreamIMDb Resolver] Tor Strategy failed, falling back:', eTor.message);
         }
+    }
 
-        const response = await axios.get(requestUrl, {
-            headers: getStreamimdbApiHeaders(embedUrl),
-            timeout: 10000,
-            responseType: 'json',
-            httpAgent: proxyAgent,
-            httpsAgent: proxyAgent,
-            validateStatus: (status) => status < 500
-        });
+    // Strategy 2: Cloudflare Worker Proxy Fallback
+    if (!payload) {
+        try {
+            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+            const requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
+            const response = await axios.get(requestUrl, {
+                headers: getStreamimdbApiHeaders(embedUrl),
+                timeout: 8000,
+                responseType: 'json',
+                validateStatus: (status) => status < 500
+            });
+            if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
+                payload = response.data;
+            }
+        } catch (eWorker) {
+            console.warn('[StreamIMDb Resolver] Worker Strategy failed:', eWorker.message);
+        }
+    }
 
-        const payload = response.data || {};
-        const isSuccess = payload.status_code === '200' || payload.status_code === 200;
+    // Strategy 3: Direct Axios Fetch Fallback
+    if (!payload) {
+        try {
+            const response = await axios.get(apiUrl.toString(), {
+                headers: getStreamimdbApiHeaders(embedUrl),
+                timeout: 8000,
+                responseType: 'json',
+                validateStatus: (status) => status < 500
+            });
+            if (response.data && (response.data.status_code === '200' || response.data.status_code === 200)) {
+                payload = response.data;
+            }
+        } catch (eDirect) {
+            console.warn('[StreamIMDb Resolver] Direct Strategy failed:', eDirect.message);
+        }
+    }
+
+    if (!payload) {
+        return res.json({ success: false, error: 'Kaynak bulunamadı', source: 'streamimdb', wrapperUrl, embedUrl });
+    }
+
+    try {
         const streamUrls = Array.isArray(payload.data?.stream_urls) ? payload.data.stream_urls : [];
-
-        if (!isSuccess || streamUrls.length === 0) {
+        if (streamUrls.length === 0) {
             return res.json({ success: false, error: 'Kaynak bulunamadı', source: 'streamimdb', wrapperUrl, embedUrl });
         }
 
