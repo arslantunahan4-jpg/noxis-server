@@ -197,21 +197,19 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
                     {/* Tab Content */}
                     {activeTab === 'stats' && (
                         <>
-                            {/* Banner Action: Annual Wrapped (30 Nov Locked / Unlocked State & Archive) */}
-                            <div className="noxis-profile-wrapped-banner">
-                                <div>
-                                    <span className="noxis-wrapped-pill">
-                                        {isCurrentYearUnlocked ? '✨ YILLIK RESMİ ÖZET' : '🔒 30 KASIM\'DA AÇIKLANACAK'}
-                                    </span>
-                                    <h3>{currentYear} Noxis Wrapped</h3>
-                                    <p>
-                                        {isCurrentYearUnlocked
-                                            ? 'Bu yıl izlediğin saatler, favori türlerin ve sinema unvanın hazır!'
-                                            : '30 Kasım\'da tüm yılın resmi izleme özeti burada açıklanacak.'}
-                                    </p>
-                                </div>
+                            {/* Banner Action: Annual Wrapped (Only visible after 30 Nov) */}
+                            {isCurrentYearUnlocked && (
+                                <div className="noxis-profile-wrapped-banner">
+                                    <div>
+                                        <span className="noxis-wrapped-pill">
+                                            ✨ YILLIK RESMİ ÖZET
+                                        </span>
+                                        <h3>{currentYear} Noxis Wrapped</h3>
+                                        <p>
+                                            Bu yıl izlediğin saatler, favori türlerin ve sinema unvanın hazır!
+                                        </p>
+                                    </div>
 
-                                {isCurrentYearUnlocked ? (
                                     <button
                                         type="button"
                                         className="noxis-btn-launch-wrapped"
@@ -222,28 +220,8 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
                                     >
                                         <i className="fas fa-play" /> Özetimi İzle
                                     </button>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                                        <button
-                                            type="button"
-                                            className="noxis-btn-launch-wrapped locked-btn"
-                                            onClick={() => {
-                                                setSelectedWrappedYear(currentYear);
-                                                setShowWrappedModal(true);
-                                            }}
-                                            title="Test / Önizleme yapmak için tıklayabilirsiniz"
-                                        >
-                                            <i className="fas fa-lock" /> 30 Kasım'ı Bekleyin
-                                        </button>
-                                        <span className="noxis-wrapped-test-note" onClick={() => {
-                                            setSelectedWrappedYear(currentYear);
-                                            setShowWrappedModal(true);
-                                        }}>
-                                            (Test için tıklayın)
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             {/* Section: Achievements & Badges */}
                             <div className="noxis-profile-section" style={{ marginBottom: '32px' }}>
