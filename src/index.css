@@ -3844,3 +3844,271 @@ video::cue-region {
     justify-content: flex-start;
   }
 }
+
+
+/* ==========================================================================
+   FRIEND PROFILE MODAL - PREMIUM GLASS UI STYLES
+   ========================================================================== */
+.noxis-friend-profile-modal {
+    position: relative !important;
+    background: rgba(18, 18, 24, 0.95) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 24px !important;
+    padding: 32px 28px 28px 28px !important;
+    color: #ffffff !important;
+    width: 90vw !important;
+    max-width: 480px !important;
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(229, 9, 20, 0.15) !important;
+}
+
+.noxis-modal-close {
+    position: absolute !important;
+    top: 18px !important;
+    right: 18px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 16px !important;
+    transition: all 0.2s ease !important;
+    z-index: 10 !important;
+}
+
+.noxis-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    transform: scale(1.08) !important;
+}
+
+.noxis-friend-profile-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin-bottom: 24px !important;
+}
+
+.noxis-friend-avatar {
+    position: relative !important;
+    width: 100px !important;
+    height: 100px !important;
+    border-radius: 50% !important;
+    border: 3px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+    overflow: visible !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 38px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+}
+
+.noxis-friend-avatar img {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+
+.noxis-friend-status-dot {
+    position: absolute !important;
+    bottom: 3px !important;
+    right: 3px !important;
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 50% !important;
+    border: 3px solid #121218 !important;
+    z-index: 2 !important;
+}
+
+.noxis-friend-status-dot.online {
+    background: #10b981 !important;
+    box-shadow: 0 0 12px #10b981 !important;
+}
+
+.noxis-friend-status-dot.offline {
+    background: #64748b !important;
+}
+
+.noxis-friend-profile-header h2 {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    margin: 0 0 6px 0 !important;
+    letter-spacing: -0.5px !important;
+}
+
+.noxis-friend-bio {
+    font-size: 14px !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    margin: 0 0 14px 0 !important;
+    font-style: italic !important;
+    line-height: 1.4 !important;
+    max-width: 340px !important;
+}
+
+.noxis-friend-meta-row {
+    display: flex !important;
+    gap: 16px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    font-size: 13px !important;
+    color: rgba(255, 255, 255, 0.55) !important;
+    flex-wrap: wrap !important;
+}
+
+.noxis-friend-meta-row span {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.noxis-friend-meta-row i {
+    color: #e50914 !important;
+}
+
+.noxis-friend-watching-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    background: rgba(229, 9, 20, 0.12) !important;
+    border: 1px solid rgba(229, 9, 20, 0.3) !important;
+    border-radius: 16px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 22px !important;
+}
+
+.noxis-friend-watching-card img {
+    width: 46px !important;
+    height: 66px !important;
+    border-radius: 8px !important;
+    object-fit: cover !important;
+}
+
+.noxis-watching-live-badge {
+    background: #e50914 !important;
+    color: #fff !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    padding: 3px 9px !important;
+    border-radius: 20px !important;
+    display: inline-block !important;
+    margin-bottom: 4px !important;
+}
+
+.noxis-friend-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 24px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 18px !important;
+    padding: 16px 12px !important;
+}
+
+.noxis-friend-stat {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-radius: 12px !important;
+    padding: 12px 8px !important;
+    text-align: center !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.noxis-friend-stat strong {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    display: block !important;
+    line-height: 1.1 !important;
+    margin-bottom: 4px !important;
+}
+
+.noxis-friend-stat span {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.noxis-friend-private-notice {
+    text-align: center !important;
+    padding: 24px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 16px !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+    margin-bottom: 20px !important;
+}
+
+.noxis-friend-private-notice i {
+    font-size: 24px !important;
+    margin-bottom: 8px !important;
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.noxis-friend-actions {
+    margin-top: 12px !important;
+    display: flex !important;
+    gap: 12px !important;
+    justify-content: center !important;
+}
+
+.noxis-friend-actions button {
+    width: 100% !important;
+    padding: 14px 20px !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    transition: all 0.2s ease !important;
+}
+
+.noxis-btn-friend-add {
+    background: linear-gradient(135deg, #e50914, #ff3b47) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4) !important;
+}
+
+.noxis-btn-friend-add:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 25px rgba(229, 9, 20, 0.6) !important;
+}
+
+.noxis-btn-friend-remove {
+    background: rgba(255, 71, 87, 0.15) !important;
+    border: 1px solid rgba(255, 71, 87, 0.4) !important;
+    color: #ff4757 !important;
+}
+
+.noxis-btn-friend-remove:hover {
+    background: rgba(255, 71, 87, 0.28) !important;
+    border-color: #ff4757 !important;
+    transform: translateY(-2px) !important;
+}
+
+.noxis-btn-friend-pending {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    cursor: default !important;
+}

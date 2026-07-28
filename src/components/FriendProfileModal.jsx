@@ -28,8 +28,11 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
     if (!isOpen) return null;
 
     const getAvatarData = (avatarId) => {
-        if (!avatarId) return null;
-        return AVATARS?.find(a => a.id === avatarId) || null;
+        if (!avatarId) return AVATARS[0] || null;
+        if (typeof avatarId === 'string' && (avatarId.startsWith('/') || avatarId.startsWith('http'))) {
+            return { url: avatarId, name: 'Avatar', gradient: 'linear-gradient(135deg, #e50914, #ff3b47)' };
+        }
+        return AVATARS?.find(a => a.id === avatarId || a.url?.includes(avatarId)) || AVATARS[0] || null;
     };
 
     const avatar = getAvatarData(profile?.avatarId);
