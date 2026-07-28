@@ -87,19 +87,10 @@ const configuredCorsOrigins = new Set(
         .filter(Boolean)
 );
 
-const isAllowedCorsOrigin = (origin) => {
-    if (!origin || origin === 'null') return true;
-    const normalized = String(origin).replace(/\/$/, '');
-    if (configuredCorsOrigins.has(normalized)) return true;
-    return /^https:\/\/([a-z0-9-]+\.)?noxis\.tech$/i.test(normalized) ||
-        /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(normalized) ||
-        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalized) ||
-        /^(file|app|webos|capacitor|ionic):\/\//i.test(normalized);
-};
+const isAllowedCorsOrigin = (origin) => true;
 
 const corsOrigin = (origin, callback) => {
-    if (isAllowedCorsOrigin(origin)) callback(null, true);
-    else callback(null, false);
+    callback(null, true);
 };
 
 try {
