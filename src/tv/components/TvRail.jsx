@@ -213,7 +213,7 @@ export const TvRail = memo(({
     const { windowStart, windowEnd, railOffset, step } = useMemo(() => {
         const currentCardWidth = cardWidthFor(layout, viewportWidth);
         const currentStep = currentCardWidth + GAP;
-        const targetIndex = hoveredIndex !== null ? hoveredIndex : safeActiveIndex;
+        const targetIndex = safeActiveIndex;
 
         if (isMobile) {
             return {
@@ -276,12 +276,18 @@ export const TvRail = memo(({
         setActiveIndex(items.length);
     }, [items.length]);
 
+    const lastWheelTime = React.useRef(0);
     const handleWheel = useCallback((event) => {
         if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+            const now = Date.now();
+            if (now - lastWheelTime.current < 150) return;
+
             if (event.deltaX > 15) {
                 setActiveIndex((prev) => Math.min(totalCount - 1, prev + 1));
+                lastWheelTime.current = now;
             } else if (event.deltaX < -15) {
                 setActiveIndex((prev) => Math.max(0, prev - 1));
+                lastWheelTime.current = now;
             }
         }
     }, [totalCount]);

@@ -2652,8 +2652,7 @@ button.tv-filter-tab.active,
   }
 
   .tv-nav-profile {
-    display: flex;
-    align-items: center;
+    display: none !important;
   }
 
   .tv-nav-profile .tv-nav-user {
@@ -4397,20 +4396,22 @@ button.tv-filter-tab.active,
 }
 
 .noxis-wrapped-kicker-neon {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
   color: #ff3b47;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   margin-bottom: 16px;
+  text-transform: uppercase;
 }
 
 .noxis-wrapped-kinetic-hero {
-  font-size: 34px;
+  font-size: 40px;
   font-weight: 950;
   color: #fff;
-  line-height: 1.15;
+  line-height: 1.1;
   margin-bottom: 12px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
 }
 
 .noxis-wrapped-hero-desc {
@@ -4434,16 +4435,12 @@ button.tv-filter-tab.active,
 }
 
 .noxis-wrapped-kinetic-num {
-  font-size: 100px;
+  font-size: 110px;
   font-weight: 950;
   line-height: 0.9;
-  letter-spacing: -0.04em;
-  background: linear-gradient(135deg, #fff, #e50914);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: -0.05em;
+  color: #fff;
   text-shadow: none;
-  filter: drop-shadow(0 0 40px rgba(229, 9, 20, 0.6));
 }
 
 .noxis-wrapped-unit-tag {
@@ -6686,4 +6683,53 @@ button.tv-btn-toggle-filters:hover,
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
     overflow: hidden !important;
+}
+
+/* WRAPPED NEW STYLES */
+.noxis-wrapped-poster-wall {
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    transform: rotate(-10deg) scale(1.1);
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.noxis-wrapped-poster-wall-track {
+    display: flex;
+    gap: 15px;
+    animation-name: slideWall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.noxis-wrapped-wall-poster {
+    width: 120px;
+    height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.noxis-wrapped-poster-wall-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.95) 10%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.95) 90%);
+    z-index: 2;
+    pointer-events: none;
+}
+
+@keyframes slideWall {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.noxis-wrapped-slide-binge .noxis-wrapped-big-number-wrapper {
+    margin: 30px 0 10px;
 }

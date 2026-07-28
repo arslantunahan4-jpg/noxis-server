@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAnnualWrappedData } from '../utils/analytics';
+import { getAnnualWrappedData, enrichWrappedWithCredits } from '../utils/analytics';
 import { imageUrl, mediaTitle } from '../tv/utils/media';
 import { getStoredAvatar } from '../config/avatars';
 import { shareNativeWrappedPoster, downloadWrappedPoster, shareWrappedToWhatsApp } from '../utils/wrappedPoster';
+import { WrappedPosterDOM } from './WrappedPosterDOM';
+import '../tv/tv.css';
 
 const SLIDE_TAGLINES = [
     ['🍿 Popcornlar hazırsa başlayalım', '🎬 Main Character Energy aktifleşiyor...', '✨ 2026 sinema aura\'n ortaya çıkıyor'],
     ['⏱️ Ekran süren şaka mı?', '🔥 Ekranla bütünleştiğin o anlar...', '📺 Rekor kırıldı, arkana yaslan'],
+    ['🤯 Maraton ustası', '⚡ Uyumak yerine devam dedin', '📺 Binge rekorun inanılmaz'],
     ['🎭 DNA\'nda hangi tür var?', '🌟 Algoritma zevkini deşifre etti', '🎯 Tarzın tek kelimeyle ikonik'],
     ['🏆 Zirvedeki Top 5 favorin', '⭐ Letterboxd listenin en tepesi', '🎞️ Tekrar tekrar döndürdüğün o 5\'li'],
     ['👑 2026 Sinema Unvanın', '🎖️ Aura seviyen tavan yaptı', '🌟 Final Boss modu açıldı']
@@ -18,7 +21,7 @@ const getRandomTagline = (slideIdx) => {
     return options[Math.floor(Math.random() * options.length)];
 };
 
-const createAmbientMusic = () => {
+const createAmbientMusic = (genreName = '') => {
     try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const gainNode = ctx.createGain();
@@ -26,13 +29,29 @@ const createAmbientMusic = () => {
         gainNode.connect(ctx.destination);
 
         const oscillators = [];
-        const notes = [130.81, 164.81, 196.0, 261.63];
+        
+        let notes = [130.81, 164.81, 196.0, 261.63]; // Default Major C
+        let waveType = 'sine';
+        
+        if (genreName === 'Korku' || genreName === 'Gerilim') {
+            notes = [110.0, 116.54, 130.81, 146.83]; // Dissonant low frequencies
+            waveType = 'triangle';
+        } else if (genreName === 'Aksiyon' || genreName === 'Macera') {
+            notes = [196.0, 261.63, 293.66, 392.0]; // Fast pace high freq
+            waveType = 'sawtooth';
+        } else if (genreName === 'Komedi') {
+            notes = [261.63, 329.63, 392.0, 523.25]; // Upbeat C Major
+            waveType = 'square';
+        }
+
         notes.forEach((freq, i) => {
             const osc = ctx.createOscillator();
-            osc.type = 'sine';
+            osc.type = waveType;
             osc.frequency.value = freq;
             const oscGain = ctx.createGain();
-            oscGain.gain.value = 0.04 - i * 0.008;
+            // Lower volume for harsh waveforms
+            const volMod = waveType === 'sine' ? 1 : 0.4;
+            oscGain.gain.value = (0.04 - i * 0.008) * volMod;
             osc.connect(oscGain);
             oscGain.connect(gainNode);
             osc.start();
@@ -75,7 +94,7 @@ const createAmbientMusic = () => {
     }
 };
 
-export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıcı' }) => {
+export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıcı', avatar: propAvatar }) => {
     const [stats, setStats] = useState(null);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
@@ -84,21 +103,28 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
     const [isSharing, setIsSharing] = useState(false);
     const musicRef = useRef(null);
 
-    const TOTAL_SLIDES = 5;
+    const HAS_FACES_SLIDE = stats?.topActor || stats?.topDirector;
+    const TOTAL_SLIDES = HAS_FACES_SLIDE ? 7 : 6;
+    const PERSONA_SLIDE_INDEX = HAS_FACES_SLIDE ? 6 : 5;
     const SLIDE_DURATION = 7000;
 
-    const avatar = getStoredAvatar();
+    const avatar = propAvatar || getStoredAvatar();
 
     useEffect(() => {
         if (isOpen) {
             const data = getAnnualWrappedData(year || new Date().getFullYear());
             setStats(data);
+            
+            enrichWrappedWithCredits(data).then(enriched => {
+                if (enriched) setStats(enriched);
+            });
+
             setCurrentSlide(0);
             setIsPaused(false);
             setIsMuted(false);
             setTaglines(Array.from({ length: TOTAL_SLIDES }, (_, i) => getRandomTagline(i)));
 
-            const music = createAmbientMusic();
+            const music = createAmbientMusic(data.topGenreName);
             musicRef.current = music;
             music.fadeIn();
         }
@@ -173,6 +199,31 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
         exit: { opacity: 0, y: -30, scale: 0.96, transition: { duration: 0.25 } }
     };
 
+    // --- DYNAMIC TEXT GENERATION ---
+    const getHoursText = (m) => {
+        if (m < 10) return { title: `Sadece ${m} dakikacık...`, desc: "Uygulamaya şöyle bir bakıp çıkmışsın galiba. Gelecek yıl daha fazla görüşelim!" };
+        if (m < 60) return { title: `Tam ${m} dakika.`, desc: "Sadece kısa bir içerik izlemişsin. Hayat çok meşgul olmalı." };
+        if (m < 300) return { title: `Tam ${m} dakika (${(m/60).toFixed(1)} saat).`, desc: "Film ve diziler senin için çerezlik. Seçici davranıyor, sadece en iyilerini izliyorsun." };
+        if (m < 1200) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Düzenli bir izleyicisin. Ne çok asosyal, ne de çok kopuk. Tam kıvamında!" };
+        if (m < 3000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Bu sürede spora başlasaydın şu an karın kasların vardı. Ama sen sinema sanatına adandın." };
+        if (m < 6000) return { title: `Koca bir ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Sıfırdan yeni bir dil öğrenebilirdin. Neyse ki filmlerde yeterince alt yazı okudun." };
+        if (m < 15000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!!`, desc: "Dünyayı yürüyerek gezmeye başlayabilirdin. Ancak sen başka evrenleri keşfetmeyi seçtin. Saygı duyuyoruz 🫡" };
+        return { title: `İnanılmaz... ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!!!`, desc: "Neredeyse bu uygulamada yaşıyorsun. Gerçek bir sinema/dizi gurmesi! Efsaneler arasında yerin hazır 👑" };
+    };
+
+    const getBingeText = (b) => {
+        if (!b || b <= 1) return "Bu yıl pek maraton havasında değildin. Sindire sindire, yavaş yavaş izledin.";
+        if (b === 2) return "Aynı gün 2 bölüm... Peş peşe izlemeye anca bu kadar dayanabildin. Sağlıklı bir sınır!";
+        if (b === 3 || b === 4) return "Uykudan biraz feragat ettin, ama belli ki buna değdi.";
+        if (b === 5 || b === 6) return "Bayağı kaptırdın! Saatlerin nasıl geçtiğini sen bile anlamadın.";
+        if (b >= 7 && b <= 9) return "Dünyanın sonu gelse senin umurunda değildi. Gözlerini ekrandan ayıramadın!";
+        if (b >= 10 && b <= 14) return "Güneşin doğuşunu ve batışını ekran karşısında izledin. İnsanüstü bir performans.";
+        return "Fizyolojik sınırları aştın. Tuvalet ve yemek molası dışında hayattan tamamen koptun. Gerçek bir Maraton Tanrısı!";
+    };
+
+    const timeCopy = stats ? getHoursText(stats.totalMinutes) : { title: '', desc: '' };
+    const bingeCopy = stats ? getBingeText(stats.maxBinge?.count || 0) : '';
+
     return (
         <AnimatePresence>
             <div className="noxis-wrapped-overlay" onClick={handleClose}>
@@ -193,15 +244,15 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                         />
                     )}
 
-                    {/* Floating Particles */}
-                    <div className="noxis-wrapped-particles">
-                        {Array.from({ length: 12 }).map((_, i) => (
-                            <div key={i} className={`noxis-wrapped-particle p-${i % 4}`} style={{
-                                left: `${10 + Math.random() * 80}%`,
-                                animationDelay: `${i * 0.4}s`,
-                                animationDuration: `${4 + Math.random() * 4}s`
-                            }} />
-                        ))}
+                    {/* Hidden Export Node for Story Poster (html-to-image) */}
+                    <div style={{
+                        position: 'absolute',
+                        left: '-9999px',
+                        top: 0,
+                        zIndex: -1,
+                        overflow: 'hidden'
+                    }}>
+                        <WrappedPosterDOM stats={stats} username={username} avatarUrl={avatar.url} />
                     </div>
 
                     {!stats.hasEnoughData ? (
@@ -285,7 +336,7 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                             <motion.span className="noxis-wrapped-hero-badge"
                                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                                             >
-                                                ✨ {stats.year || 2026} NOXIS REWIND
+                                                NOXIS REWIND {stats.year || 2026}
                                             </motion.span>
 
                                             <motion.h1 className="noxis-wrapped-kinetic-hero"
@@ -330,7 +381,7 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                             <motion.span className="noxis-wrapped-kicker-neon"
                                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
                                             >
-                                                ⏱️ EKRAN BAŞINDAKİ ZAMANIN
+                                                EKRAN BAŞINDAKİ ZAMANIN
                                             </motion.span>
 
                                             <motion.div className="noxis-wrapped-big-number-wrapper"
@@ -345,13 +396,9 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                             <motion.p className="noxis-wrapped-hero-desc" style={{ marginTop: '12px' }}
                                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
                                             >
-                                                {stats.timeBreakdown.desc}
-                                            </motion.p>
-
-                                            <motion.p className="noxis-wrapped-fun-comparison"
-                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-                                            >
-                                                {stats.timeBreakdown.comparison}
+                                                <strong>{timeCopy.title}</strong>
+                                                <br/>
+                                                {timeCopy.desc}
                                             </motion.p>
 
                                             <motion.div className="noxis-wrapped-stat-duo"
@@ -371,13 +418,57 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                         </motion.div>
                                     )}
 
-                                    {/* ═══════ SLIDE 2: TOP GENRE ═══════ */}
+                                    {/* ═══════ SLIDE 2: BINGE STREAK ═══════ */}
                                     {currentSlide === 2 && (
+                                        <motion.div key="s2" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-binge">
+                                            <motion.span className="noxis-wrapped-kicker-neon"
+                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                                            >
+                                                MARATON USTASI
+                                            </motion.span>
+
+                                            <motion.div className="noxis-wrapped-big-number-wrapper"
+                                                initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                                                transition={{ delay: 0.3, type: 'spring', stiffness: 150, damping: 12 }}
+                                            >
+                                                <div className="noxis-wrapped-kinetic-num">
+                                                    {stats.maxBinge?.count || 0}
+                                                </div>
+                                            </motion.div>
+
+                                            <motion.p className="noxis-wrapped-hero-desc" style={{ marginTop: '12px', fontSize: '18px' }}
+                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+                                            >
+                                                {stats.maxBinge?.date && (
+                                                    <>
+                                                        {new Date(stats.maxBinge.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })} gününde, üst üste tam {stats.maxBinge.count} bölüm izledin.
+                                                        <br/><br/>
+                                                    </>
+                                                )}
+                                                {bingeCopy}
+                                            </motion.p>
+                                            
+                                            {stats.maxBinge?.title && (
+                                                <motion.div className="noxis-wrapped-stat-duo"
+                                                    initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+                                                >
+                                                    <div className="noxis-wrapped-duo-card" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                        <i className="fas fa-tv" style={{ color: '#ff3b47' }} />
+                                                        <strong style={{ fontSize: '32px', color: '#fff', textTransform: 'uppercase' }}>{stats.maxBinge.title}</strong>
+                                                        <span style={{ opacity: 0.6 }}>O Muhteşem Maratonun Başrolü</span>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </motion.div>
+                                    )}
+
+                                    {/* ═══════ SLIDE 3: TOP GENRE ═══════ */}
+                                    {currentSlide === 3 && (
                                         <motion.div key="s2" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-genres">
                                             <motion.span className="noxis-wrapped-kicker-neon"
                                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
                                             >
-                                                🎭 RUH EŞİN OLAN TÜR
+                                                RUH EŞİN OLAN TÜR
                                             </motion.span>
 
                                             <motion.h2 className="noxis-wrapped-genre-title"
@@ -416,13 +507,13 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                         </motion.div>
                                     )}
 
-                                    {/* ═══════ SLIDE 3: TOP 5 CONTENT ═══════ */}
-                                    {currentSlide === 3 && (
+                                    {/* ═══════ SLIDE 4: TOP 5 CONTENT ═══════ */}
+                                    {currentSlide === 4 && (
                                         <motion.div key="s3" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-top5">
-                                            <motion.span className="noxis-wrapped-kicker-neon"
-                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                                            <motion.span className="noxis-wrapped-hero-badge"
+                                                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
                                             >
-                                                🏆 {stats.year || 2026} FAVORİLERİN
+                                                NOXIS REWIND {stats.year || 2026}
                                             </motion.span>
 
                                             <motion.h2 className="noxis-wrapped-hero-sm"
@@ -447,6 +538,8 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                                                 initial={{ opacity: 0, x: -20 }}
                                                                 animate={{ opacity: 1, x: 0 }}
                                                                 transition={{ delay: 0.35 + idx * 0.08, type: 'spring', stiffness: 200 }}
+                                                                whileHover={{ scale: 1.05, rotateY: 10, rotateX: -5, boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
+                                                                style={{ perspective: 1000, transformStyle: 'preserve-3d' }}
                                                             >
                                                                 <span className={`noxis-wrapped-rank-badge rank-badge-${rank}`}>
                                                                     {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
@@ -471,37 +564,96 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                         </motion.div>
                                     )}
 
-                                    {/* ═══════ SLIDE 4: PERSONA & POSTER NATIVE SHARE ═══════ */}
-                                    {currentSlide === 4 && (
-                                        <motion.div key="s4" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-persona">
+                                    {/* ═══════ NEW SLIDE: TOP ACTOR / DIRECTOR ═══════ */}
+                                    {HAS_FACES_SLIDE && currentSlide === 5 && (
+                                        <motion.div key="faces" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-faces">
                                             <motion.span className="noxis-wrapped-kicker-neon"
                                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
                                             >
-                                                👑 {stats.year || 2026} SİNEMA UNVANIN
+                                                YILIN FAVORİ YÜZLERİ
+                                            </motion.span>
+                                            
+                                            <div className="noxis-wrapped-faces-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '32px' }}>
+                                                {stats.topActor && (
+                                                    <motion.div className="noxis-wrapped-face-card"
+                                                        initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                    >
+                                                        {stats.topActor.profile_path ? (
+                                                            <img src={`https://image.tmdb.org/t/p/w200${stats.topActor.profile_path}`} alt={stats.topActor.name} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        ) : <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="fas fa-user" /></div>}
+                                                        <div>
+                                                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>Favori Oyuncun</div>
+                                                            <div style={{ fontSize: '24px', fontWeight: '800', margin: '4px 0' }}>{stats.topActor.name}</div>
+                                                            <div style={{ color: '#ff3b47', fontSize: '14px', fontWeight: '600' }}><i className="fas fa-clock" /> {stats.topActor.score} Saat Birlikteydiniz</div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                                
+                                                {stats.topDirector && (
+                                                    <motion.div className="noxis-wrapped-face-card"
+                                                        initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                    >
+                                                        {stats.topDirector.profile_path ? (
+                                                            <img src={`https://image.tmdb.org/t/p/w200${stats.topDirector.profile_path}`} alt={stats.topDirector.name} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        ) : <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="fas fa-video" /></div>}
+                                                        <div>
+                                                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>Favori Yönetmen / Yaratıcı</div>
+                                                            <div style={{ fontSize: '24px', fontWeight: '800', margin: '4px 0' }}>{stats.topDirector.name}</div>
+                                                            <div style={{ color: '#ff3b47', fontSize: '14px', fontWeight: '600' }}><i className="fas fa-clock" /> {stats.topDirector.score} Saat Birlikteydiniz</div>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* ═══════ SLIDE: PERSONA & POSTER NATIVE SHARE ═══════ */}
+                                    {currentSlide === PERSONA_SLIDE_INDEX && (
+                                        <motion.div key="s4" variants={slideVariants} initial="enter" animate="center" exit="exit" className="noxis-wrapped-slide noxis-wrapped-slide-persona" style={{ overflow: 'hidden' }}>
+                                            
+                                            {/* Poster Wall Background */}
+                                            <div className="noxis-wrapped-poster-wall">
+                                                {Array.from({ length: 3 }).map((_, i) => (
+                                                    <div key={i} className="noxis-wrapped-poster-wall-track" style={{ animationDuration: `${20 + i * 5}s`, animationDirection: i % 2 === 0 ? 'normal' : 'reverse' }}>
+                                                        {stats.top5Items.concat(stats.top5Items).map((item, idx) => {
+                                                            const posterUrl = imageUrl(item.poster_path || item.backdrop_path, 'w300');
+                                                            return posterUrl ? <img key={idx} src={posterUrl} alt="" className="noxis-wrapped-wall-poster" /> : null;
+                                                        })}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="noxis-wrapped-poster-wall-overlay" />
+
+                                            <motion.span className="noxis-wrapped-kicker-neon" style={{ position: 'relative', zIndex: 10 }}
+                                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
+                                            >
+                                                {stats.year || 2026} SİNEMA UNVANIN
                                             </motion.span>
 
-                                            <motion.div className="noxis-wrapped-persona-badge"
+                                            <motion.div className="noxis-wrapped-persona-badge" style={{ position: 'relative', zIndex: 10 }}
                                                 initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
                                                 transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 14 }}
                                             >
                                                 <i className="fas fa-crown" />
                                             </motion.div>
 
-                                            <motion.h2 className="noxis-wrapped-persona-title"
+                                            <motion.h2 className="noxis-wrapped-persona-title" style={{ position: 'relative', zIndex: 10 }}
                                                 initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }}
                                                 transition={{ delay: 0.55, type: 'spring', stiffness: 180 }}
                                             >
                                                 {stats.persona.title}
                                             </motion.h2>
 
-                                            <motion.p className="noxis-wrapped-persona-desc"
+                                            <motion.p className="noxis-wrapped-persona-desc" style={{ position: 'relative', zIndex: 10 }}
                                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.75 }}
                                             >
                                                 {stats.persona.desc}
                                             </motion.p>
 
                                             {/* Glassmorphic 4-Card Summary Grid */}
-                                            <motion.div className="noxis-wrapped-summary-grid"
+                                            <motion.div className="noxis-wrapped-summary-grid" style={{ position: 'relative', zIndex: 10 }}
                                                 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}
                                             >
                                                 <div className="noxis-wrapped-summary-card">
@@ -535,18 +687,24 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                             </motion.div>
 
                                             {/* Single Native Share Button */}
-                                            <motion.div className="noxis-wrapped-actions-row"
+                                            <motion.div className="noxis-wrapped-actions-row" style={{ position: 'relative', zIndex: 10 }}
                                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1 }}
                                             >
                                                 <button
                                                     type="button"
                                                     className="noxis-wrapped-btn-single-share"
-                                                    onClick={handleNativeShare}
-                                                    disabled={isSharing}
-                                                    title="Instagram, WhatsApp ve tüm uygulamalarda görsel kartı paylaş"
+                                                    onClick={() => shareNativeWrappedPoster(stats, avatar.url, username)}
                                                 >
-                                                    <i className={`fas ${isSharing ? 'fa-spinner fa-spin' : 'fa-share-nodes'}`} /> 
-                                                    {isSharing ? 'Görsel Kartı Hazırlanıyor...' : 'Özeti Paylaş (Instagram, WhatsApp...)'}
+                                                    <i className="fas fa-share-nodes" /> Instagram / Hikayede Paylaş
+                                                </button>
+                                                
+                                                <button
+                                                    type="button"
+                                                    className="noxis-wrapped-btn-single-share"
+                                                    onClick={() => downloadWrappedPoster(stats, avatar.url, username)}
+                                                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}
+                                                >
+                                                    <i className="fas fa-download" /> Galeriye Kaydet
                                                 </button>
                                             </motion.div>
                                         </motion.div>

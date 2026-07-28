@@ -5,23 +5,47 @@ import { AVATARS } from '../config/avatars';
 
 export const FriendProfileModal = ({ isOpen, onClose, username }) => {
     const [profile, setProfile] = useState(null);
+    const [myProfile, setMyProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [compatibility, setCompatibility] = useState(null);
 
     useEffect(() => {
         if (isOpen && username) {
             setLoading(true);
             setError(null);
-            friendsService.getUserProfile(username)
-                .then(data => {
-                    setProfile(data.profile);
-                    setLoading(false);
-                })
-                .catch(err => {
-                    setError(err.message);
-                    setLoading(false);
-                });
+            Promise.all([
+                friendsService.getUserProfile(username),
+                friendsService.getMyProfile()
+            ]).then(([friendData, myData]) => {
+                setProfile(friendData.profile);
+                setMyProfile(myData.profile);
+                
+                // --- Compatibility Logic ---
+                const fHist = friendData.profile?.watchHistory || {};
+                const mHist = myData.profile?.watchHistory || {};
+                
+                let commonItems = 0;
+                const fKeys = Object.keys(fHist);
+                fKeys.forEach(k => { if(mHist[k]) commonItems++; });
+                
+                // Compare top genres (we assume stats has topGenreName)
+                const fGenre = friendData.profile?.stats?.topGenreName?.toLowerCase();
+                const mGenre = myData.profile?.stats?.topGenreName?.toLowerCase();
+                
+                let score = 50; // base score
+                if (commonItems > 0) score += Math.min(30, commonItems * 3);
+                if (fGenre && mGenre && fGenre === mGenre) score += 20;
+                
+                if (fKeys.length === 0 || Object.keys(mHist).length === 0) score = 0;
+                
+                setCompatibility(Math.min(99, score));
+                setLoading(false);
+            }).catch(err => {
+                setError(err.message);
+                setLoading(false);
+            });
         }
     }, [isOpen, username]);
 
@@ -103,6 +127,25 @@ export const FriendProfileModal = ({ isOpen, onClose, username }) => {
                                         <span>{profile.username.charAt(0).toUpperCase()}</span>
                                     )}
                                     <span className={`noxis-friend-status-dot ${profile.isOnline ? 'online' : 'offline'}`} />
+                                    
+                                    {/* Compatibility Badge (Glassmorphism) */}
+                                    {compatibility !== null && (
+                                        <motion.div 
+                                            initial={{ scale: 0, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            transition={{ delay: 0.3, type: 'spring' }}
+                                            style={{
+                                                position: 'absolute', bottom: '-15px', right: '-15px',
+                                                background: 'rgba(20,20,20,0.8)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                                                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px',
+                                                padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '6px',
+                                                boxShadow: '0 10px 20px rgba(0,0,0,0.5)'
+                                            }}
+                                        >
+                                            <i className="fas fa-fire" style={{ color: '#e50914', fontSize: '12px' }} />
+                                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>%{compatibility} Uyum</span>
+                                        </motion.div>
+                                    )}
                                 </div>
                                 <h2>{profile.username}</h2>
                                 {profile.levelData?.levelInfo && (

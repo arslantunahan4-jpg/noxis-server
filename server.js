@@ -17,6 +17,11 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { findSource } from './src/services/scraperManager.js';
 import { resolveDizimom } from './src/utils/dizimom-resolver.js';
+
+import { Friendship } from './src/models/Friendship.js';
+import { Watchlist } from './src/models/Watchlist.js';
+import { Notification } from './src/models/Notification.js';
+
 import { adminMiddleware } from './src/middleware/adminMiddleware.js';
 import { Friendship } from './src/models/Friendship.js';
 import { sessionTokenQuery, sessionTokenRecord } from './src/utils/sessionToken.js';
@@ -3793,6 +3798,112 @@ app.post('/api/friends/activity', authenticateToken, async (req, res) => {
 });
 
 // Use httpServer to listen instead of app.listen
+
+// --- SOCIAL & AI ROUTES ---
+// Notifications API
+app.get('/api/notifications', authenticateToken, async (req, res) => {
+    try {
+        const notifs = await Notification.find({ recipient: req.user.id })
+            .populate('sender', 'username avatarId')
+            .sort({ createdAt: -1 })
+            .limit(20);
+        res.json({ success: true, notifications: notifs });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
+app.post('/api/notifications/recommend', authenticateToken, async (req, res) => {
+    try {
+        const { recipientId, data } = req.body;
+        const notif = new Notification({
+            sender: req.user.id,
+            recipient: recipientId,
+            type: 'RECOMMENDATION',
+            data
+        });
+        await notif.save();
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to send recommendation' });
+    }
+});
+
+app.post('/api/notifications/read', authenticateToken, async (req, res) => {
+    try {
+        await Notification.updateMany({ recipient: req.user.id, isRead: false }, { isRead: true });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to mark notifications read' });
+    }
+});
+
+// Watchlists API
+app.get('/api/watchlists', authenticateToken, async (req, res) => {
+    try {
+        const lists = await Watchlist.find({
+            $or: [{ owner: req.user.id }, { collaborators: req.user.id }]
+        }).populate('owner', 'username avatarId').populate('collaborators', 'username avatarId');
+        res.json({ success: true, watchlists: lists });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch watchlists' });
+    }
+});
+
+app.post('/api/watchlists', authenticateToken, async (req, res) => {
+    try {
+        const { title, description } = req.body;
+        const list = new Watchlist({ title, description, owner: req.user.id, collaborators: [req.user.id] });
+        await list.save();
+        res.json({ success: true, watchlist: list });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create watchlist' });
+    }
+});
+
+app.post('/api/watchlists/:id/add', authenticateToken, async (req, res) => {
+    try {
+        const { item } = req.body; // { tmdbId, mediaType, title, posterPath, backdropPath }
+        const list = await Watchlist.findById(req.params.id);
+        if (!list) return res.status(404).json({ error: 'Not found' });
+        if (list.owner.toString() !== req.user.id && !list.collaborators.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+        
+        if (!list.items.some(i => i.tmdbId == item.tmdbId && i.mediaType == item.mediaType)) {
+            list.items.push({ ...item, addedBy: req.user.id });
+            await list.save();
+        }
+        res.json({ success: true, watchlist: list });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to add item to watchlist' });
+    }
+});
+
+app.post('/api/watchlists/:id/ai-suggest', authenticateToken, async (req, res) => {
+    try {
+        const list = await Watchlist.findById(req.params.id);
+        if (!list || list.items.length === 0) return res.json({ success: true, suggestions: [] });
+
+        // Simple mock of the AI logic for now (can enhance later if needed)
+        // Just return 5 random popular movies from TMDB that are not in the list
+        const tmdbApiKey = process.env.TMDB_API_KEY || 'e3b87968b5a03dd4d9dc86663c78daff';
+        const response = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${tmdbApiKey}&language=tr-TR`);
+        const data = await response.json();
+        
+        let suggestions = data.results.filter(i => !list.items.some(li => li.tmdbId == i.id));
+        res.json({ success: true, suggestions: suggestions.slice(0, 5) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'AI Error' });
+    }
+});
+// --- END SOCIAL & AI ROUTES ---
+
 httpServer.listen(CONFIG.PORT, () => {
     startKeepAlive();
 

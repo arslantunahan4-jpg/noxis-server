@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { friendsService } from '../utils/friendsService';
+import { useNavigate } from 'react-router-dom';
+
+export const WatchlistsModal = ({ isOpen, onClose, user }) => {
+    const [lists, setLists] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedList, setSelectedList] = useState(null);
+    const [aiSuggestions, setAiSuggestions] = useState([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    
+    // Create form
+    const [isCreating, setIsCreating] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (isOpen) fetchLists();
+    }, [isOpen]);
+
+    const fetchLists = async () => {
+        setLoading(true);
+        try {
+            const data = await friendsService.getWatchlists();
+            setLists(data.watchlists || []);
+        } catch(e) { console.error(e); }
+        setLoading(false);
+    };
+
+    const handleCreate = async () => {
+        if(!newTitle.trim()) return;
+        try {
+            await friendsService.createWatchlist({ title: newTitle, description: newDesc });
+            setNewTitle(''); setNewDesc(''); setIsCreating(false);
+            fetchLists();
+        } catch(e) { console.error(e); }
+    };
+
+    const handleAiSuggest = async (listId) => {
+        setAiLoading(true);
+        try {
+            const data = await friendsService.getAiSuggestions(listId);
+            setAiSuggestions(data.suggestions || []);
+        } catch(e) { console.error(e); }
+        setAiLoading(false);
+    };
+
+    const handleAddAiSuggestion = async (item) => {
+        try {
+            const payload = {
+                tmdbId: String(item.id),
+                mediaType: item.media_type,
+                title: item.title || item.name,
+                posterPath: item.poster_path,
+                backdropPath: item.backdrop_path
+            };
+            await friendsService.addToWatchlist(selectedList._id, payload);
+            
+            // Remove from suggestions and reload lists
+            setAiSuggestions(prev => prev.filter(s => s.id !== item.id));
+            const data = await friendsService.getWatchlists();
+            setLists(data.watchlists || []);
+            // Update selected list reference
+            setSelectedList(data.watchlists.find(l => l._id === selectedList._id));
+        } catch(e) { console.error(e); }
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', zIndex: 11000 }}
+                    />
+                    
+                    {/* Drawer */}
+                    <motion.div
+                        initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        style={{ 
+                            position: 'fixed', top: 0, right: 0, width: '450px', maxWidth: '100vw', height: '100vh', 
+                            background: 'rgba(15,15,15,0.95)', borderLeft: '1px solid rgba(255,255,255,0.1)', 
+                            zIndex: 11001, display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ padding: '30px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>
+                                {selectedList ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => setSelectedList(null)}>
+                                        <i className="fas fa-arrow-left" style={{ fontSize: '18px', color: '#e50914' }} /> {selectedList.title}
+                                    </span>
+                                ) : 'Ortak Listeler'}
+                            </h2>
+                            <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}><i className="fas fa-times" /></button>
+                        </div>
+
+                        {/* Content */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '30px' }}>
+                            {loading ? (
+                                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', marginTop: '50px' }}><i className="fas fa-spinner fa-spin" style={{ fontSize: '24px' }} /></div>
+                            ) : selectedList ? (
+                                /* --- LIST DETAIL VIEW --- */
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '16px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{selectedList.description || 'Açıklama yok.'}</p>
+                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                {selectedList.collaborators.map(c => (
+                                                    <div key={c._id} title={c.username} style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                                                        {c.username.charAt(0).toUpperCase()}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Items */}
+                                    <h3 style={{ margin: '10px 0 0 0', fontSize: '18px' }}>İçerikler ({selectedList.items.length})</h3>
+                                    {selectedList.items.length === 0 ? (
+                                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>Liste henüz boş.</p>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {selectedList.items.map(item => (
+                                                <div key={item._id} onClick={() => { onClose(); navigate(`/${item.mediaType}/${item.tmdbId}`); }} style={{ display: 'flex', gap: '15px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', cursor: 'pointer', alignItems: 'center' }}>
+                                                    {item.posterPath ? (
+                                                        <img src={`https://image.tmdb.org/t/p/w92${item.posterPath}`} style={{ width: '50px', borderRadius: '8px' }} />
+                                                    ) : <div style={{ width: '50px', height: '75px', background: '#333', borderRadius: '8px' }} />}
+                                                    <div style={{ flex: 1 }}>
+                                                        <h4 style={{ margin: '0 0 5px 0', fontSize: '15px' }}>{item.title}</h4>
+                                                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                            {item.mediaType === 'tv' ? 'Dizi' : 'Film'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* AI Suggest Section */}
+                                    <div style={{ marginTop: '20px', padding: '20px', background: 'linear-gradient(135deg, rgba(229,9,20,0.1) 0%, rgba(229,9,20,0.02) 100%)', borderRadius: '16px', border: '1px solid rgba(229,9,20,0.2)' }}>
+                                        <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <i className="fas fa-magic" style={{ color: '#e50914' }} /> Akıllı Öneri (AI)
+                                        </h4>
+                                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '0 0 15px 0' }}>
+                                            Listendeki içeriklere ve yönetmenlere göre izlemediğin benzer popüler yapımları keşfet.
+                                        </p>
+                                        
+                                        {!aiSuggestions.length && !aiLoading ? (
+                                            <button onClick={() => handleAiSuggest(selectedList._id)} style={{ width: '100%', padding: '12px', background: '#e50914', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                                Bana Film/Dizi Öner
+                                            </button>
+                                        ) : aiLoading ? (
+                                            <div style={{ textAlign: 'center', padding: '20px', color: '#e50914' }}><i className="fas fa-spinner fa-spin fa-2x" /></div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                {aiSuggestions.map(s => (
+                                                    <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '10px', alignItems: 'center' }}>
+                                                        <img src={`https://image.tmdb.org/t/p/w92${s.poster_path}`} style={{ width: '40px', borderRadius: '6px' }} />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || s.name}</div>
+                                                            <div style={{ fontSize: '10px', color: '#e50914' }}><i className="fas fa-star"/> {s.vote_average?.toFixed(1)}</div>
+                                                        </div>
+                                                        <button onClick={() => handleAddAiSuggestion(s)} style={{ background: '#e50914', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '100px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>Ekle</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                /* --- MAIN LISTS VIEW --- */
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    {!isCreating ? (
+                                        <button onClick={() => setIsCreating(true)} style={{ width: '100%', padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: '16px', color: '#fff', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                            <i className="fas fa-plus" /> Yeni Ortak Liste
+                                        </button>
+                                    ) : (
+                                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                            <input type="text" placeholder="Liste Adı" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff' }} />
+                                            <input type="text" placeholder="Kısa Açıklama" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#fff' }} />
+                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                <button onClick={() => setIsCreating(false)} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: '10px', cursor: 'pointer' }}>İptal</button>
+                                                <button onClick={handleCreate} style={{ flex: 1, padding: '12px', background: '#e50914', border: 'none', color: '#fff', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Oluştur</button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {lists.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.4)' }}>
+                                            <i className="fas fa-list fa-3x" style={{ marginBottom: '15px', opacity: 0.5 }} />
+                                            <p>Hiç ortak listen yok.</p>
+                                        </div>
+                                    ) : (
+                                        lists.map(list => (
+                                            <div key={list._id} onClick={() => setSelectedList(list)} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '20px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.2s' }}>
+                                                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>{list.title}</h3>
+                                                <p style={{ margin: '0 0 15px 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{list.description || 'Ortak İzleme Listesi'}</p>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '100px' }}>
+                                                        <i className="fas fa-film" /> {list.items.length} İçerik
+                                                    </span>
+                                                    <div style={{ display: 'flex' }}>
+                                                        {list.collaborators.slice(0, 3).map((c, i) => (
+                                                            <div key={c._id} style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', marginLeft: i > 0 ? '-10px' : '0', border: '2px solid #111' }}>
+                                                                {c.username.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
+    );
+};

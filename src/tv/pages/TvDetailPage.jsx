@@ -12,6 +12,7 @@ import {
     tvBackdropUrl
 } from '../utils/media';
 import { fetchTMDBCached, preloadImage } from '../utils/tmdbCache';
+import { friendsService } from '../../utils/friendsService';
 
 const pageVariants = {
     initial: { opacity: 0, scale: 1.006 },
@@ -37,6 +38,11 @@ const TvDetailPage = () => {
     const [selectedSeason, setSelectedSeason] = useState(1);
     const [episodes, setEpisodes] = useState([]);
     const [episodesLoading, setEpisodesLoading] = useState(false);
+
+    // Social recommend state
+    const [showRecommendModal, setShowRecommendModal] = useState(false);
+    const [friends, setFriends] = useState([]);
+    const [recommendMsg, setRecommendMsg] = useState('');
 
     const autoPlay = searchParams.get('autoplay') === '1';
     const autoSeason = Number(searchParams.get('s') || 1);
@@ -355,7 +361,49 @@ const TvDetailPage = () => {
                             <i className="fas fa-layer-group" />
                             <span>Listeye Dön</span>
                         </button>
+                        <button
+                            type="button"
+                            className="focusable tv-action tv-action-secondary"
+                            data-focus-id="tv-detail-recommend"
+                            data-tv-focus-index="2"
+                            onClick={() => {
+                                setShowRecommendModal(true);
+                                friendsService.getFriendsList().then(res => setFriends(res.friends || []));
+                            }}
+                        >
+                            <i className="fas fa-paper-plane" />
+                            <span>Arkadaşına Öner</span>
+                        </button>
                     </div>
+
+                    {showRecommendModal && (
+                        <div className="tv-recommend-overlay" onClick={() => setShowRecommendModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '24px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <h2 style={{ margin: '0 0 20px', fontSize: '24px' }}>Kime Öneriyorsun?</h2>
+                                <input type="text" placeholder="İsteğe bağlı bir not ekle..." value={recommendMsg} onChange={e => setRecommendMsg(e.target.value)} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '12px', color: '#fff', marginBottom: '20px' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                    {friends.map(f => (
+                                        <button key={f._id} onClick={async () => {
+                                            await friendsService.sendRecommendation({
+                                                recipientId: f._id,
+                                                tmdbId: id,
+                                                mediaType: type,
+                                                title: mediaTitle(movie),
+                                                posterPath: movie?.poster_path,
+                                                message: recommendMsg
+                                            });
+                                            setShowRecommendModal(false);
+                                            setRecommendMsg('');
+                                        }} style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.05)', padding: '10px 15px', border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>{f.username.charAt(0).toUpperCase()}</div>
+                                            <span style={{ fontSize: '18px' }}>{f.username}</span>
+                                        </button>
+                                    ))}
+                                    {friends.length === 0 && <span style={{ color: 'rgba(255,255,255,0.5)' }}>Arkadaşın bulunmuyor.</span>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {cast.length > 0 && (
                         <div className="tv-cast-line">

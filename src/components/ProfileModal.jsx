@@ -111,11 +111,11 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
         return `${Math.floor(hours / 24)} gün önce`;
     };
 
-    // Nov 30 Release Lock Check
+    // Nov 30 Release Lock Check (Test için açık)
     const now = new Date();
     const currentYear = now.getFullYear();
     const nov30Date = new Date(currentYear, 10, 30, 0, 0, 0); // 30 Nov
-    const isCurrentYearUnlocked = now >= nov30Date;
+    const isCurrentYearUnlocked = true; // TEST İÇİN AÇIK: now >= nov30Date;
 
     return (
         <AnimatePresence>
@@ -490,6 +490,7 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
                         onClose={() => setShowWrappedModal(false)}
                         year={selectedWrappedYear}
                         username={username}
+                        avatar={avatar}
                     />
 
                     {/* FriendProfileModal */}

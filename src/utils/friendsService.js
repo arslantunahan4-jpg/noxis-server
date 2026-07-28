@@ -47,5 +47,26 @@ export const friendsService = {
     getPendingRequests: () => apiCall('/api/friends/requests'),
     updateActivity: (data) => apiCall('/api/friends/activity', {
         method: 'POST', body: JSON.stringify(data)
+    }),
+
+    // Notifications
+    getNotifications: () => apiCall('/api/notifications'),
+    sendRecommendation: (data) => apiCall('/api/notifications/recommend', {
+        method: 'POST', body: JSON.stringify(data)
+    }),
+    markNotificationsRead: () => apiCall('/api/notifications/read', {
+        method: 'POST'
+    }),
+
+    // Watchlists
+    getWatchlists: () => apiCall('/api/watchlists'),
+    createWatchlist: (data) => apiCall('/api/watchlists', {
+        method: 'POST', body: JSON.stringify(data)
+    }),
+    addToWatchlist: (listId, item) => apiCall(`/api/watchlists/${listId}/add`, {
+        method: 'POST', body: JSON.stringify({ item })
+    }),
+    getAiSuggestions: (listId) => apiCall(`/api/watchlists/${listId}/ai-suggest`, {
+        method: 'POST'
     })
 };

@@ -1,4 +1,5 @@
 import { getWatchHistory } from './watchHistory';
+import { fetchTMDBCached } from '../tv/utils/tmdbCache';
 
 const GENRE_MAP = {
     28: 'Aksiyon',
@@ -79,49 +80,49 @@ export const formatHoursBreakdown = (totalHours, totalMinutes) => {
 const getBadgeForStats = (totalHours, episodeCount, topGenreName) => {
     if (topGenreName === 'Bilim Kurgu') {
         return {
-            title: 'Multiverse Gezgini 🌌',
-            desc: 'Zaman çizelgelerini birbirine kattın, simülasyonun dışına çıktın!'
+            title: 'SİMÜLASYON HACKER\'I',
+            desc: 'Gerçeklikten koptun. Matrix\'te veya paralel bir evrende yaşamaya hazırsın.'
         };
     }
     if (topGenreName === 'Aksiyon' || topGenreName === 'Macera') {
         return {
-            title: 'Adrenalin Bağımlısı ⚡',
-            desc: 'Patlamalar, kovalamacalar ve yüksek tempo. Durup dinlenmek senin sözlüğünde yok!'
+            title: 'ADRENALİN JUNKIE',
+            desc: 'Nabzının düşmesine izin vermedin. Ekranda patlama yoksa senin için sıkıcı bir gündür.'
         };
     }
     if (topGenreName === 'Korku' || topGenreName === 'Gerilim') {
         return {
-            title: 'Gece Yarısı Gurmesi 🌙',
-            desc: 'Karanlıkta jumpscare yerken bile istifini bozmayan o soğukkanlı Aura.'
+            title: 'KARANLIK MİMARI',
+            desc: 'Travma yaşamak yerine travmayı izlemeyi tercih eden o korkusuz psikopat.'
         };
     }
     if (topGenreName === 'Dram' || topGenreName === 'Romantik' || topGenreName === 'Dizi & Drama') {
         return {
-            title: 'Duygu Kasırgası 🎭',
-            desc: 'Karakterlerle birlikte ağlayıp birlikte gülen, senaryoyu ciğerinde hisseden vizyon.'
+            title: 'AURA BÜKÜCÜ',
+            desc: 'Karakterlerin derdiyle dertlenen, senaryoyu damarlarında hisseden derin vizyon.'
         };
     }
     if (topGenreName === 'Komedi') {
         return {
-            title: 'Dopamin Avcısı 🍿',
-            desc: 'Stresi ve derdi ekranın dışında bırakan, neşeyi sinemada bulan keyif insanı.'
+            title: 'KAOS YÖNETİCİSİ',
+            desc: 'Stresi ve derdi kapıda bıraktın. Sadece kaliteli vizyon ve saf dopamine odaklandın.'
         };
     }
     if (episodeCount > 15) {
         return {
-            title: 'Sezon Kapatan Canavar 📺',
-            desc: '"Son bir bölüm daha" derken sabah ezanını okutan o durdurulamaz maraton ruhu!'
+            title: 'LORE MASTER',
+            desc: '"Son bir bölüm" yalanına inanmayı çoktan bıraktın. Diziyi değil hayatını erteledin.'
         };
     }
     if (totalHours > 20) {
         return {
-            title: 'Sinema Profesörü 🎓',
-            desc: 'Kültür seviyesi tavan yapmış, her detayı yakalayan gerçek bir sinefil.'
+            title: 'KÜLTÜR BAKANI',
+            desc: 'Algıların açık, kalite standartların yüksek. Boş içeriğe ayıracak 1 saniyen bile yok.'
         };
     }
     return {
-        title: 'Sinema Yıldızı 🌟',
-        desc: 'Kendi hikayesinin başrolünde parlayan, ekran başından ayrılmayan gerçek bir sinema tutkunu.'
+        title: 'MAIN CHARACTER',
+        desc: 'Kendi filminin başrolü. Ekran karşısında geçen her saat, senin ana karakter enerjini besliyor.'
     };
 };
 
@@ -469,15 +470,24 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
     let episodeCount = 0;
     const genreCounts = {};
     const itemMap = new Map();
+    const dailyBingeCounts = {};
 
     cycleItems.forEach((item) => {
         const duration = Number(item.currentTime || 0);
         totalSeconds += duration;
 
         const isCompleted = isCompletedItem(item);
+        const itemDate = new Date(item.updatedAt || Date.now());
+        const dateKey = `${itemDate.getFullYear()}-${itemDate.getMonth() + 1}-${itemDate.getDate()}`;
 
         if (item.media_type === 'tv' || item.season || item.episode) {
-            if (isCompleted) episodeCount += 1;
+            if (isCompleted) {
+                episodeCount += 1;
+                if (!dailyBingeCounts[dateKey]) dailyBingeCounts[dateKey] = { count: 0, date: itemDate, title: item.title };
+                dailyBingeCounts[dateKey].count += 1;
+                // keep the title of the latest binged show
+                dailyBingeCounts[dateKey].title = item.title;
+            }
         } else {
             if (isCompleted) movieCount += 1;
         }
@@ -496,6 +506,13 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
             const existing = itemMap.get(id) || { ...item, totalWatchSeconds: 0 };
             existing.totalWatchSeconds += duration;
             itemMap.set(id, existing);
+        }
+    });
+
+    let maxBinge = { count: 0, date: null, title: '' };
+    Object.values(dailyBingeCounts).forEach(day => {
+        if (day.count > maxBinge.count) {
+            maxBinge = day;
         }
     });
 
@@ -537,6 +554,88 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
         persona,
         timeBreakdown,
         userLevelData,
-        insights
+        insights,
+        maxBinge
+    };
+};
+
+
+export const enrichWrappedWithCredits = async (wrappedData) => {
+    if (!wrappedData || !wrappedData.top5Items || wrappedData.top5Items.length === 0) return wrappedData;
+
+    // Sadece en çok izlenen 15 yapımı tarayalım ki TMDB limitlerine takılmayalım
+    const topItems = wrappedData.top5Items.slice(0, 15);
+    const actorScores = {};
+    const directorScores = {};
+
+    const fetchPromises = topItems.map(async (item) => {
+        if (!item.id && !item.imdbId) return;
+        
+        try {
+            const type = item.media_type === 'tv' || item.season ? 'tv' : 'movie';
+            const tmdbId = item.id || item.imdbId;
+            const endpoint = `/${type}/${tmdbId}?append_to_response=credits`;
+            
+            const data = await fetchTMDBCached(endpoint, { ttl: 24 * 60 * 60 * 1000 });
+            if (!data || !data.credits) return;
+
+            const watchSeconds = item.totalWatchSeconds || 0;
+            const watchHours = watchSeconds / 3600;
+
+            // Oyuncular (Sadece ana kadro, ilk 5 kişi yeterli)
+            const cast = data.credits.cast?.slice(0, 5) || [];
+            cast.forEach(actor => {
+                if (!actorScores[actor.id]) {
+                    actorScores[actor.id] = { id: actor.id, name: actor.name, profile_path: actor.profile_path, score: 0, count: 0 };
+                }
+                actorScores[actor.id].score += watchHours;
+                actorScores[actor.id].count += 1;
+            });
+
+            // Yönetmenler / Yaratıcılar
+            const crew = data.credits.crew || [];
+            const directors = type === 'tv' 
+                ? (data.created_by || []) 
+                : crew.filter(c => c.job === 'Director');
+                
+            directors.forEach(dir => {
+                if (!directorScores[dir.id]) {
+                    directorScores[dir.id] = { id: dir.id, name: dir.name, profile_path: dir.profile_path, score: 0, count: 0 };
+                }
+                directorScores[dir.id].score += watchHours;
+                directorScores[dir.id].count += 1;
+            });
+
+        } catch (e) {
+            console.warn('Wrapped TMDB Cekimi Hatali:', item.title);
+        }
+    });
+
+    await Promise.all(fetchPromises);
+
+    let topActor = null;
+    let maxActorScore = 0;
+    Object.values(actorScores).forEach(actor => {
+        // En az 3 farklı yapımda izlenmiş veya en az 5 saat maruz kalınmışsa
+        if (actor.score > maxActorScore && (actor.count >= 3 || actor.score >= 5)) {
+            maxActorScore = actor.score;
+            topActor = actor;
+        }
+    });
+
+    let topDirector = null;
+    let maxDirScore = 0;
+    Object.values(directorScores).forEach(dir => {
+        // Yönetmen eşiği (en az 3 yapım veya 5 saat)
+        if (dir.score > maxDirScore && (dir.count >= 3 || dir.score >= 5)) {
+            maxDirScore = dir.score;
+            topDirector = dir;
+        }
+    });
+
+    return {
+        ...wrappedData,
+        topActor: topActor ? { ...topActor, score: Math.round(topActor.score * 10) / 10 } : null,
+        topDirector: topDirector ? { ...topDirector, score: Math.round(topDirector.score * 10) / 10 } : null
     };
 };

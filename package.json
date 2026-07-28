@@ -85,6 +85,7 @@
     "framer-motion": "^11.18.2",
     "helmet": "^8.1.0",
     "hls.js": "^1.6.15",
+    "html-to-image": "^1.11.13",
     "http-proxy-middleware": "^3.0.5",
     "input": "^1.0.1",
     "livekit-client": "^2.17.0",
