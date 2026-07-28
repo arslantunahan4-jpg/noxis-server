@@ -107,7 +107,7 @@ const httpServer = createServer(app);
 // Initialize Socket.IO with CORS
 const io = new Server(httpServer, {
     cors: {
-        origin: "*",
+        origin: corsOrigin,
         methods: ["GET", "POST"]
     }
 });
@@ -315,7 +315,7 @@ function handleDisconnect(socket, code) {
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: corsOrigin }));
 app.use(compression());
 app.use(express.json());
 
