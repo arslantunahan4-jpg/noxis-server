@@ -3357,6 +3357,13 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
         const isRecentlyActive = (Date.now() - new Date(lastSeenDate).getTime()) < 3 * 60 * 1000;
         const isOnline = onlineUsers.has(String(targetUser._id)) || isRecentlyActive;
 
+const isCurrentlyWatchingFresh = (watching) => {
+    if (!watching || !watching.title) return null;
+    if (!watching.updatedAt) return watching;
+    const ageMs = Date.now() - new Date(watching.updatedAt).getTime();
+    return ageMs < 2 * 60 * 1000 ? watching : null;
+};
+
         const profileData = {
             username: targetUser.username,
             avatarId: targetUser.avatarId || '',
@@ -3366,7 +3373,7 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             friendCount,
             isOnline,
             lastSeen: lastSeenDate,
-            currentlyWatching: isOnline ? (targetUser.onlineStatus?.currentlyWatching || null) : null,
+            currentlyWatching: isOnline ? isCurrentlyWatchingFresh(targetUser.onlineStatus?.currentlyWatching) : null,
             memberSince: targetUser.createdAt
         };
 
@@ -3455,8 +3462,9 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
             }));
 
             // Currently watching
-            if (isOnline && targetUser.onlineStatus?.currentlyWatching?.title) {
-                profileData.currentlyWatching = targetUser.onlineStatus.currentlyWatching;
+            const freshWatching = isOnline ? isCurrentlyWatchingFresh(targetUser.onlineStatus?.currentlyWatching) : null;
+            if (freshWatching) {
+                profileData.currentlyWatching = freshWatching;
             }
         }
 
@@ -3703,7 +3711,7 @@ app.get('/api/friends/list', authenticateToken, async (req, res) => {
                 bio: friend.bio || '',
                 isOnline,
                 lastSeen: friendLastSeen,
-                currentlyWatching: isOnline ? (friend.onlineStatus?.currentlyWatching || null) : null,
+                currentlyWatching: isOnline ? isCurrentlyWatchingFresh(friend.onlineStatus?.currentlyWatching) : null,
                 friendSince: f.acceptedAt
             };
         });
