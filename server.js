@@ -3900,6 +3900,36 @@ app.post('/api/watchlists/:id/ai-suggest', authenticateToken, async (req, res) =
         res.status(500).json({ error: 'AI Error' });
     }
 });
+app.post('/api/watchlists/:id/invite', authenticateToken, async (req, res) => {
+    try {
+        const list = await Watchlist.findById(req.params.id);
+        if (!list) return res.status(404).json({ error: 'List not found' });
+        if (list.owner.toString() !== req.user.id) return res.status(403).json({ error: 'Only owner can invite' });
+
+        const { friendId } = req.body;
+        if (!friendId) return res.status(400).json({ error: 'friendId required' });
+
+        if (!list.collaborators.includes(friendId)) {
+            list.collaborators.push(friendId);
+            await list.save();
+        }
+
+        const notification = new Notification({
+            user: friendId,
+            sender: req.user.id,
+            type: 'LIST_INVITE',
+            data: { listId: list._id, listTitle: list.title },
+            read: false
+        });
+        await notification.save();
+
+        res.json({ success: true, watchlist: list });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to invite friend' });
+    }
+});
+
 // --- END SOCIAL & AI ROUTES ---
 
 httpServer.listen(CONFIG.PORT, () => {

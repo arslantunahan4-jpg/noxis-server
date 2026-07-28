@@ -68,5 +68,8 @@ export const friendsService = {
     }),
     getAiSuggestions: (listId) => apiCall(`/api/watchlists/${listId}/ai-suggest`, {
         method: 'POST'
+    }),
+    inviteToWatchlist: (listId, friendId) => apiCall(`/api/watchlists/${listId}/invite`, {
+        method: 'POST', body: JSON.stringify({ friendId })
     })
 };

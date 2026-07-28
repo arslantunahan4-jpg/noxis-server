@@ -10,6 +10,11 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
     const [aiSuggestions, setAiSuggestions] = useState([]);
     const [aiLoading, setAiLoading] = useState(false);
     
+    // Invite state
+    const [friends, setFriends] = useState([]);
+    const [showInviteUI, setShowInviteUI] = useState(false);
+    const [inviteLoading, setInviteLoading] = useState(false);
+
     // Create form
     const [isCreating, setIsCreating] = useState(false);
     const [newTitle, setNewTitle] = useState('');
@@ -68,6 +73,27 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
         } catch(e) { console.error(e); }
     };
 
+    const handleInviteFriend = async (friendId) => {
+        setInviteLoading(true);
+        try {
+            await friendsService.inviteToWatchlist(selectedList._id, friendId);
+            const data = await friendsService.getWatchlists();
+            setLists(data.watchlists || []);
+            setSelectedList(data.watchlists.find(l => l._id === selectedList._id));
+        } catch(e) { console.error(e); }
+        setInviteLoading(false);
+    };
+
+    const toggleInviteUI = async () => {
+        if (!showInviteUI) {
+            try {
+                const data = await friendsService.getFriendsList();
+                setFriends(data.friends || []);
+            } catch(e) { console.error(e); }
+        }
+        setShowInviteUI(!showInviteUI);
+    };
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -111,15 +137,46 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '16px' }}>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{selectedList.description || 'Açıklama yok.'}</p>
-                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
                                                 {selectedList.collaborators.map(c => (
                                                     <div key={c._id} title={c.username} style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#e50914', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
                                                         {c.username.charAt(0).toUpperCase()}
                                                     </div>
                                                 ))}
+                                                {selectedList.owner._id === user?.id && (
+                                                    <button onClick={toggleInviteUI} style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px dashed rgba(255,255,255,0.3)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Arkadaş Ekle">
+                                                        <i className="fas fa-plus" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Invite UI */}
+                                    <AnimatePresence>
+                                        {showInviteUI && (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <h4 style={{ margin: 0, fontSize: '14px' }}>Arkadaş Davet Et</h4>
+                                                {friends.length === 0 ? (
+                                                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Listene ekleyeceğin arkadaşın yok.</p>
+                                                ) : (
+                                                    friends.filter(f => !selectedList.collaborators.some(c => c._id === f._id)).length === 0 ? (
+                                                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>Tüm arkadaşların zaten bu listede!</p>
+                                                    ) : (
+                                                        friends.filter(f => !selectedList.collaborators.some(c => c._id === f._id)).map(friend => (
+                                                            <div key={friend._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px' }}>
+                                                                <span style={{ fontSize: '13px' }}>{friend.username}</span>
+                                                                <button onClick={() => handleInviteFriend(friend._id)} disabled={inviteLoading} style={{ background: '#e50914', border: 'none', color: '#fff', padding: '5px 10px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>
+                                                                    {inviteLoading ? <i className="fas fa-spinner fa-spin" /> : 'Davet Et'}
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
 
                                     {/* Items */}
                                     <h3 style={{ margin: '10px 0 0 0', fontSize: '18px' }}>İçerikler ({selectedList.items.length})</h3>

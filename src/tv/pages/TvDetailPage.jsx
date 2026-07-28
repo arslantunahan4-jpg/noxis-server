@@ -44,6 +44,10 @@ const TvDetailPage = () => {
     const [friends, setFriends] = useState([]);
     const [recommendMsg, setRecommendMsg] = useState('');
 
+    // Watchlist state
+    const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+    const [watchlists, setWatchlists] = useState([]);
+
     const autoPlay = searchParams.get('autoplay') === '1';
     const autoSeason = Number(searchParams.get('s') || 1);
     const autoEpisode = Number(searchParams.get('e') || 1);
@@ -374,6 +378,19 @@ const TvDetailPage = () => {
                             <i className="fas fa-paper-plane" />
                             <span>Arkadaşına Öner</span>
                         </button>
+                        <button
+                            type="button"
+                            className="focusable tv-action tv-action-secondary"
+                            data-focus-id="tv-detail-add-list"
+                            data-tv-focus-index="3"
+                            onClick={() => {
+                                setShowWatchlistModal(true);
+                                friendsService.getWatchlists().then(res => setWatchlists(res.watchlists || []));
+                            }}
+                        >
+                            <i className="fas fa-plus" />
+                            <span>Listeye Ekle</span>
+                        </button>
                     </div>
 
                     {showRecommendModal && (
@@ -400,6 +417,35 @@ const TvDetailPage = () => {
                                         </button>
                                     ))}
                                     {friends.length === 0 && <span style={{ color: 'rgba(255,255,255,0.5)' }}>Arkadaşın bulunmuyor.</span>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showWatchlistModal && (
+                        <div className="tv-recommend-overlay" onClick={() => setShowWatchlistModal(false)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="tv-recommend-modal" onClick={e => e.stopPropagation()} style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(20px)', padding: '30px', borderRadius: '24px', width: '400px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                <h2 style={{ margin: '0 0 20px', fontSize: '24px' }}>Hangi Listeye Eklensin?</h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                    {watchlists.map(list => (
+                                        <button key={list._id} onClick={async () => {
+                                            await friendsService.addToWatchlist(list._id, {
+                                                tmdbId: String(id),
+                                                mediaType: type,
+                                                title: mediaTitle(movie),
+                                                posterPath: movie?.poster_path,
+                                                backdropPath: movie?.backdrop_path
+                                            });
+                                            setShowWatchlistModal(false);
+                                        }} style={{ display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255,255,255,0.05)', padding: '15px', border: 'none', borderRadius: '12px', color: '#fff', cursor: 'pointer', textAlign: 'left' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>{list.title}</h4>
+                                                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>{list.items.length} içerik</span>
+                                            </div>
+                                            <i className="fas fa-plus" style={{ color: '#e50914' }} />
+                                        </button>
+                                    ))}
+                                    {watchlists.length === 0 && <span style={{ color: 'rgba(255,255,255,0.5)' }}>Henüz hiçbir ortak listeniz yok.</span>}
                                 </div>
                             </div>
                         </div>
