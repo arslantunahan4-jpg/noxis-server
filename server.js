@@ -1544,7 +1544,7 @@ app.get('/api/video-proxy', async (req, res) => {
                     url: targetUrl,
                     responseType: isM3U8 ? 'text' : 'stream',
                     headers: headers,
-                    timeout: 6000,
+                    timeout: 15000,
                     httpAgent: torAgent,
                     httpsAgent: torAgent,
                     validateStatus: false
