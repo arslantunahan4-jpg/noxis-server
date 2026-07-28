@@ -139,30 +139,6 @@ const getKey = (imdbId, season = null, episode = null) => {
     return imdbId;
 };
 
-export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
-    if (!imdbId || !duration || duration < 60) return;
-
-    let history = getWatchHistory();
-    const key = getKey(imdbId, metadata.season, metadata.episode);
-    const progress = (currentTime / duration) * 100;
-
-    // PERFORMANCE: Sadece gerekli verileri sakla (poster/backdrop URL'leri SAKLAMA)
-    history[key] = {
-        imdbId,
-        id: metadata.tmdbId || null,
-        media_type: metadata.mediaType || 'movie',
-        currentTime: Math.floor(currentTime),
-        duration: Math.floor(duration),
-        progress: Math.round(progress),
-        updatedAt: Date.now(),
-        completed: progress >= 90,
-        title: metadata.title || null,
-        season: metadata.season || null,
-        episode: metadata.episode || null,
-        poster_path: metadata.poster_path || null,
-        backdrop_path: metadata.backdrop_path || null
-    };
-
 let lastActivitySyncTime = 0;
 const syncCurrentlyWatchingActivity = (item) => {
     if (!item || !item.title) return;
@@ -187,6 +163,7 @@ const syncCurrentlyWatchingActivity = (item) => {
                 episode: item.episode
             })
         }).catch(() => {});
+    } catch (e) {}
 };
 
 export const clearCurrentlyWatchingActivity = () => {
@@ -209,6 +186,30 @@ export const clearCurrentlyWatchingActivity = () => {
         }).catch(() => {});
     } catch (e) {}
 };
+
+export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
+    if (!imdbId || !duration || duration < 60) return;
+
+    let history = getWatchHistory();
+    const key = getKey(imdbId, metadata.season, metadata.episode);
+    const progress = (currentTime / duration) * 100;
+
+    // PERFORMANCE: Sadece gerekli verileri sakla (poster/backdrop URL'leri SAKLAMA)
+    history[key] = {
+        imdbId,
+        id: metadata.tmdbId || null,
+        media_type: metadata.mediaType || 'movie',
+        currentTime: Math.floor(currentTime),
+        duration: Math.floor(duration),
+        progress: Math.round(progress),
+        updatedAt: Date.now(),
+        completed: progress >= 90,
+        title: metadata.title || null,
+        season: metadata.season || null,
+        episode: metadata.episode || null,
+        poster_path: metadata.poster_path || null,
+        backdrop_path: metadata.backdrop_path || null
+    };
 
     try {
         // PERFORMANCE: Kayıt sayısını kontrol et
