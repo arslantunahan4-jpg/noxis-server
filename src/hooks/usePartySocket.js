@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { SOCKET_CONFIG, PARTY_CONFIG, I18N } from '../config/party';
+import { getStoredAvatar } from '../config/avatars';
 
 export const usePartySocket = (videoRef, imdbId, username, options = {}) => {
   const { lang = 'tr' } = options;
@@ -174,10 +175,12 @@ export const usePartySocket = (videoRef, imdbId, username, options = {}) => {
           reject(new Error('Join timeout'));
         }, 10000);
 
+        const activeAvatar = getStoredAvatar();
         socketRef.current.emit('join_room', {
           code,
           username: username || 'Misafir',
-          userId: localStorage.getItem('noxis_user_id')
+          userId: localStorage.getItem('noxis_user_id'),
+          avatar: activeAvatar.url || activeAvatar.gradient
         }, (response) => {
           clearTimeout(timeout);
           if (response?.success) {

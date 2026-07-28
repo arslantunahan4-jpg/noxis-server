@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="neo_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#neo_bg)"/>
+
+  <!-- Black Hair -->
+  <path d="M60 62 C60 40 140 40 140 62 L138 75 L62 75 Z" fill="#0f172a"/>
+
+  <!-- Face -->
+  <path d="M68 60 C68 45 132 45 132 60 L128 114 C128 135 72 135 72 114 Z" fill="#fed7aa"/>
+
+  <!-- Oval Black Matrix Sunglasses -->
+  <ellipse cx="84" cy="78" rx="11" ry="6" fill="#020617"/>
+  <ellipse cx="116" cy="78" rx="11" ry="6" fill="#020617"/>
+  <line x1="95" y1="78" x2="105" y2="78" stroke="#020617" stroke-width="2.5"/>
+
+  <!-- Black High Neck Trench Coat -->
+  <path d="M35 200 C35 140 165 140 165 200 Z" fill="#0f172a"/>
+  <rect x="88" y="140" width="24" height="60" fill="#1e293b"/>
+</svg>

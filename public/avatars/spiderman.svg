@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="sp_bg2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#sp_bg2)"/>
+
+  <!-- Red Mask Head -->
+  <path d="M50 65 C50 30 150 30 150 65 L145 125 C145 155 55 155 55 125 Z" fill="#ef4444"/>
+
+  <!-- Web Pattern -->
+  <path d="M100 35 L100 150 M50 65 L150 65 M60 100 L140 100 M65 45 L135 135 M135 45 L65 135" stroke="#1e293b" stroke-width="2.5" opacity="0.6"/>
+
+  <!-- Big White Lenses with Thick Black Border -->
+  <path d="M62 70 C62 70 88 85 92 60 C88 45 68 55 62 70 Z" fill="#ffffff" stroke="#0f172a" stroke-width="6"/>
+  <path d="M138 70 C138 70 112 85 108 60 C112 45 132 55 138 70 Z" fill="#ffffff" stroke="#0f172a" stroke-width="6"/>
+
+  <!-- Shoulders -->
+  <path d="M35 200 C35 150 165 150 165 200 Z" fill="#ef4444"/>
+  <path d="M35 200 C35 150 70 150 70 200 Z" fill="#2563eb"/>
+  <path d="M165 200 C165 150 130 150 130 200 Z" fill="#2563eb"/>
+</svg>

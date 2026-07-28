@@ -54,40 +54,51 @@ const CategoryPage = ({ type = 'movie' }) => {
         });
     };
 
+    const featured = data[popularKey]?.results?.[0];
+    const featuredImage = featured?.backdrop_path || featured?.poster_path
+        ? `https://image.tmdb.org/t/p/w1280${featured.backdrop_path || featured.poster_path}`
+        : '';
+
     return (
-        <div style={{ paddingBottom: '80px', minHeight: '100dvh', background: 'var(--bg-primary)' }}>
-            <div style={{ padding: '24px 16px 16px 16px' }}>
-                <h1 style={{
-                    fontSize: '32px',
-                    fontWeight: '800',
-                    letterSpacing: '-0.02em',
-                    background: 'linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
-                }}>
-                    {type === 'movie' ? 'Filmler' : 'Diziler'}
-                </h1>
-            </div>
+        <div className="tv-screen tv-category-page">
+            <section className="tv-category-hero">
+                <div className="tv-category-bg" style={{ backgroundImage: featuredImage ? `url("${featuredImage}")` : undefined }} />
+                <div className="tv-category-fade" />
+                <div className="tv-category-copy">
+                    <span className="tv-kicker">Noxis koleksiyonu</span>
+                    <h1>{type === 'movie' ? 'Filmler' : 'Diziler'}</h1>
+                    <p>{type === 'movie'
+                        ? 'Büyük perdeden kalan his, tek bir yerde.'
+                        : 'Yeni bölümler, güçlü hikâyeler ve uzun geceler.'}</p>
+                    {featured && (
+                        <button type="button" className="focusable tv-action tv-action-primary" onClick={() => openDetail(featured)}>
+                            <i className="fas fa-play" />
+                            <span>{featured.title || featured.name}</span>
+                        </button>
+                    )}
+                </div>
+            </section>
 
-            <Row
-                title={popularTitle}
-                data={data[popularKey]?.results || []}
-                onSelect={openDetail}
-                onLoadMore={() => loadData(popularKey, popularEndpoint, (data[popularKey]?.page || 1) + 1)}
-                hasMore={data[popularKey]?.page < data[popularKey]?.total_pages}
-            />
-
-            {definitions.map(cat => (
+            <div className="tv-rail-stack tv-category-rails">
                 <Row
-                    key={cat.key}
-                    title={cat.title}
-                    data={data[cat.key]?.results || []}
+                    title={popularTitle}
+                    data={data[popularKey]?.results || []}
                     onSelect={openDetail}
-                    onLoadMore={() => loadData(cat.key, cat.endpoint, (data[cat.key]?.page || 1) + 1)}
-                    hasMore={data[cat.key]?.page < data[cat.key]?.total_pages}
+                    onLoadMore={() => loadData(popularKey, popularEndpoint, (data[popularKey]?.page || 1) + 1)}
+                    hasMore={data[popularKey]?.page < data[popularKey]?.total_pages}
                 />
-            ))}
+
+                {definitions.map(cat => (
+                    <Row
+                        key={cat.key}
+                        title={cat.title}
+                        data={data[cat.key]?.results || []}
+                        onSelect={openDetail}
+                        onLoadMore={() => loadData(cat.key, cat.endpoint, (data[cat.key]?.page || 1) + 1)}
+                        hasMore={data[cat.key]?.page < data[cat.key]?.total_pages}
+                    />
+                ))}
+            </div>
         </div>
     );
 };

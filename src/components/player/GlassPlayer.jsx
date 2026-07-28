@@ -511,6 +511,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
     const pendingResumeTimeRef = useRef(null);
     const pendingAutoplayRef = useRef(null);
     const lastPlaybackKeyRef = useRef(null);
+    const lastSavedSecondRef = useRef(-1);
 
     // PERFORMANCE: Cihaz ve animasyon optimizasyonu
     const deviceCapability = useDeviceCapability();
@@ -700,7 +701,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
         }
     }, [getPlaybackSnapshot]);
 
-    const schedulePlaybackFallback = useCallback((reason, data = {}, delay = 4500) => {
+    const schedulePlaybackFallback = useCallback((reason, data = {}, delay = 8000) => {
         if (playbackErrorNotifiedRef.current || hlsManifestReadyRef.current) return;
         if (playbackFallbackTimerRef.current) return;
         if (getPlaybackSnapshot().hasStarted) return;
@@ -1130,9 +1131,14 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
             );
 
             if (cue) {
-                // Keep HTML tags (<i>, <b>, <u>) intact, but strip proprietary SRT brackets like {y:i}
+                // Keep clean HTML tags (<i>, <b>, <u>) intact, but strip proprietary SRT brackets and WebVTT class/style tags
                 const formattedText = cue.text
                     .replace(/\{[^}]+\}/g, '')
+                    .replace(/<c[^>]*>/gi, '')
+                    .replace(/<\/c>/gi, '')
+                    .replace(/<font[^>]*>/gi, '')
+                    .replace(/<\/font>/gi, '')
+                    .replace(/style="[^"]*"/gi, '')
                     .trim();
                 setCurrentSubtitle(formattedText);
             } else {
@@ -1968,8 +1974,10 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
             party.broadcastState(false);
         }
 
-        // İlerleme kaydetme - her 10 saniyede bir (5 yerine)
-        if (imdbId && vid.currentTime > 0 && vid.duration > 0 && Math.floor(vid.currentTime) % 10 === 0) {
+        // İlerleme kaydetme - her 10 saniyede bir (tekrarsız)
+        const second = Math.floor(vid.currentTime);
+        if (imdbId && second > 0 && vid.duration > 0 && second % 10 === 0 && second !== lastSavedSecondRef.current) {
+            lastSavedSecondRef.current = second;
             saveProgress(imdbId, vid.currentTime, vid.duration, {
                 season, episode, title: movieTitle, poster_path: poster, backdrop_path: backdrop,
                 tmdbId, mediaType
@@ -2489,7 +2497,7 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
                                 console.warn('[HLS] Network error, attempting recovery...');
-                                schedulePlaybackFallback('hls-network-error', data);
+                                schedulePlaybackFallback('hls-network-error', data, 12000);
                                 const recoverId = setTimeout(() => {
                                     if (hlsRef.current !== hls) return;
                                     const resumeAt = videoRef.current?.currentTime || recoveryPosition || currentTimeRef.current || 0;
@@ -2799,20 +2807,30 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
                     }
                 }
 
+                video::-webkit-media-text-track-container {
+                    bottom: 4% !important;
+                }
+                video::-webkit-media-text-track-background {
+                    background: transparent !important;
+                    background-color: transparent !important;
+                }
                 video::-webkit-media-text-track-display {
                     position: relative !important;
                     bottom: 0 !important;
+                    background: transparent !important;
+                    background-color: transparent !important;
                 }
                 video::cue {
-                    font-family: 'Netflix Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                    color: #ffffff;
+                    font-family: 'Netflix Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+                    color: #ffffff !important;
                     background: transparent !important;
+                    background-color: transparent !important;
                     text-shadow: 
-                        2px 2px 4px rgba(0,0,0,0.9),
-                        -1px -1px 2px rgba(0,0,0,0.7),
-                        1px -1px 2px rgba(0,0,0,0.7),
-                        -1px 1px 2px rgba(0,0,0,0.7),
-                        0 0 8px rgba(0,0,0,0.5);
+                        2px 2px 4px rgba(0,0,0,0.95),
+                        -1px -1px 2px rgba(0,0,0,0.8),
+                        1px -1px 2px rgba(0,0,0,0.8),
+                        -1px 1px 2px rgba(0,0,0,0.8),
+                        0 0 8px rgba(0,0,0,0.6) !important;
                     font-weight: 700;
                     line-height: 1.4;
                     font-size: clamp(20px, 2.8vw, 42px);
@@ -3180,6 +3198,20 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
                                     <PlayerButton onClick={togglePlay}>
                                         <i className={`fas ${isPlaying ? 'fa-pause' : 'fa-play'}`} style={{ fontSize: '20px' }} />
                                     </PlayerButton>
+
+                                    {(mediaType === 'tv' || onNextEpisode) && (
+                                        <PlayerButton
+                                            onClick={() => {
+                                                if (onNextEpisode) {
+                                                    onNextEpisode();
+                                                }
+                                            }}
+                                            title="Sonraki Bölüm"
+                                            style={{ opacity: onNextEpisode ? 1 : 0.4 }}
+                                        >
+                                            <i className="fas fa-forward-step" style={{ fontSize: '18px' }} />
+                                        </PlayerButton>
+                                    )}
 
                                     {/* Custom Volume Control */}
                                     <div

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Noxis</string>
+    <string name="title_activity_main">Noxis</string>
+    <string name="package_name">com.noxis.app</string>
+    <string name="custom_url_scheme">com.noxis.app</string>
+</resources>

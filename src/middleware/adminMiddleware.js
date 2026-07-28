@@ -1,6 +1,7 @@
 import { User } from '../models/User.js';
 import { Session } from '../models/Session.js';
 import logger from '../utils/logger.js';
+import { hashSessionToken, sessionTokenQuery } from '../utils/sessionToken.js';
 
 export const adminMiddleware = async (req, res, next) => {
     try {
@@ -12,9 +13,12 @@ export const adminMiddleware = async (req, res, next) => {
             return res.status(401).json({ error: 'Authentication required' });
         }
 
-        const session = await Session.findOne({ token });
+        const session = await Session.findOne(sessionTokenQuery(token));
         if (!session) {
-            logger.warn('Admin access attempt with invalid token', { ip: req.ip, token: token.substring(0, 10) + '...' });
+            logger.warn('Admin access attempt with invalid token', {
+                ip: req.ip,
+                tokenFingerprint: hashSessionToken(token).slice(0, 10)
+            });
             return res.status(403).json({ error: 'Session expired or invalid' });
         }
 

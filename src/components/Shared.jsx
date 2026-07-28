@@ -1,4 +1,4 @@
-import React, { memo, useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { memo, useState, useRef, useEffect } from 'react';
 import { isWatched } from '../hooks/useAppLogic';
 import { useNavigate } from 'react-router-dom';
 
@@ -133,72 +133,19 @@ const NAV_ITEMS = [
 
 export const NavBar = memo(({ activeTab, onLogout, className, style, user }) => {
     const navigate = useNavigate();
-    const menuRef = useRef(null);
-    const buttonsRef = useRef({});
-    const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0, opacity: 0 });
-    const [hoveredTab, setHoveredTab] = useState(null);
 
     const navItems = React.useMemo(() => {
         const items = [...NAV_ITEMS];
-        if (user?.role === 'admin') {
-            items.push({ id: 'Admin', icon: 'fas fa-user-shield', label: 'Admin', path: '/admin' });
-        }
-        if (window.NoxisAppBridge || window.AndroidBridge) {
+        if (user?.role === 'admin') items.push({ id: 'Admin', icon: 'fas fa-user-shield', label: 'Admin', path: '/admin' });
+        if (window.NoxisDesktop || window.NoxisAppBridge || window.AndroidBridge) {
             items.push({ id: 'Downloads', icon: 'fas fa-download', label: 'İndirilenler', isBridgeCall: true });
         }
         return items;
     }, [user?.role]);
 
-    useLayoutEffect(() => {
-        const updateIndicator = (tabId) => {
-            const button = buttonsRef.current[tabId];
-            const menu = menuRef.current;
-            if (button && menu) {
-                const menuRect = menu.getBoundingClientRect();
-                const buttonRect = button.getBoundingClientRect();
-                setIndicatorStyle({
-                    left: buttonRect.left - menuRect.left,
-                    width: buttonRect.width,
-                    opacity: 1
-                });
-            }
-        };
-
-        // If current tab is not in menu (e.g. Admin on mobile/user), don't crash
-        const targetTab = hoveredTab || activeTab;
-        if (buttonsRef.current[targetTab]) {
-            updateIndicator(targetTab);
-        } else {
-             setIndicatorStyle(prev => ({ ...prev, opacity: 0 }));
-        }
-    }, [activeTab, hoveredTab, navItems]);
-
-    const getButtonScale = (itemId) => {
-        const targetTab = hoveredTab || activeTab;
-        if (itemId === targetTab) return 1.02;
-
-        const targetIndex = navItems.findIndex(i => i.id === targetTab);
-        const currentIndex = navItems.findIndex(i => i.id === itemId);
-        const distance = Math.abs(targetIndex - currentIndex);
-
-        if (distance === 1) return 0.97;
-        return 0.94;
-    };
-
-    const getButtonOpacity = (itemId) => {
-        const targetTab = hoveredTab || activeTab;
-        if (itemId === targetTab) return 1;
-
-        const targetIndex = navItems.findIndex(i => i.id === targetTab);
-        const currentIndex = navItems.findIndex(i => i.id === itemId);
-        const distance = Math.abs(targetIndex - currentIndex);
-
-        if (distance === 1) return 0.7;
-        return 0.5;
-    };
-
     const handleNav = (item) => {
         if (item.isBridgeCall) {
+            if (window.NoxisDesktop) return navigate('/downloads');
             const bridge = window.NoxisAppBridge || window.AndroidBridge;
             if (bridge) bridge.openDownloads();
             return;
@@ -207,91 +154,37 @@ export const NavBar = memo(({ activeTab, onLogout, className, style, user }) => 
     };
 
     return (
-        <nav
-            className={`navbar-container ${className || ''}`}
-            style={style}
-        >
-            <div className="nav-logo">
-                <img src="/noxis-logo.svg" alt="Noxis" style={{ height: '28px', width: 'auto' }} />
-            </div>
-
-            <div className="nav-menu" ref={menuRef}>
-                <div
-                    className="nav-indicator"
-                    style={{
-                        position: 'absolute',
-                        top: '4px',
-                        bottom: '4px',
-                        left: indicatorStyle.left,
-                        width: indicatorStyle.width,
-                        background: 'linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.12) 100%)',
-                        borderRadius: '18px',
-                        border: '1px solid rgba(255,255,255,0.30)',
-                        boxShadow: '0 0 20px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.25)',
-                        transition: 'left 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
-                        opacity: indicatorStyle.opacity,
-                        pointerEvents: 'none',
-                        zIndex: 0,
-                        overflow: 'hidden'
-                    }}
-                >
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '45%',
-                        background: 'linear-gradient(180deg, rgba(255,255,255,0.30) 0%, transparent 100%)',
-                        borderRadius: '18px 18px 50% 50%',
-                        pointerEvents: 'none'
-                    }} />
-                </div>
-
-                {navItems.map(item => (
+        <header className={`tv-top-nav ${className || ''}`} style={style}>
+            <button type="button" className="focusable tv-brand" onClick={() => navigate('/')} aria-label="Noxis ana sayfa">
+                <img src="/noxis-logo.svg" alt="" />
+                <span>NOXIS</span>
+            </button>
+            <nav className="tv-nav-tabs" aria-label="Navigasyon">
+                {navItems.map((item) => (
                     <button
                         key={item.id}
-                        ref={el => buttonsRef.current[item.id] = el}
-                        tabIndex="0"
+                        type="button"
+                        className={`focusable tv-nav-tab ${activeTab === item.id ? 'active' : ''}`}
                         onClick={() => handleNav(item)}
-                        onMouseEnter={() => setHoveredTab(item.id)}
-                        onMouseLeave={() => setHoveredTab(null)}
-                        className="focusable nav-btn"
-                        style={{
-                            transform: `scale(${getButtonScale(item.id)})`,
-                            opacity: getButtonOpacity(item.id),
-                            color: (hoveredTab === item.id || activeTab === item.id) ? 'white' : 'rgba(255,255,255,0.65)',
-                            fontWeight: (hoveredTab === item.id || activeTab === item.id) ? 700 : 600,
-                            zIndex: 1
-                        }}
                     >
-                        {item.label}
+                        <i className={item.icon} aria-hidden="true" />
+                        <span>{item.label}</span>
                     </button>
                 ))}
-            </div>
-
-            <div className="nav-profile">
+            </nav>
+            <div className="tv-nav-profile">
+                {user?.username && <span className="tv-nav-user">{user.username}</span>}
                 {onLogout ? (
-                    <button
-                        onClick={onLogout}
-                        className="nav-logout-btn"
-                        title="Çıkış Yap"
-                        style={{ background: 'rgba(229, 9, 20, 0.2)', border: '1px solid rgba(229, 9, 20, 0.5)' }}
-                    >
-                        <i className="fas fa-sign-out-alt"></i>
+                    <button type="button" onClick={onLogout} className="focusable tv-nav-icon" title="Çıkış Yap" aria-label="Oturumu kapat">
+                        <i className="fas fa-sign-out-alt" />
                     </button>
                 ) : (
-                    <button
-                        onClick={() => navigate('/auth')}
-                        className="nav-btn"
-                        title="Giriş Yap"
-                        style={{ background: '#E50914', border: 'none', color: 'white', padding: '8px 16px' }}
-                    >
-                        <i className="fas fa-user" style={{ marginRight: '8px' }}></i>
-                        <span>Giriş</span>
+                    <button type="button" onClick={() => navigate('/auth')} className="focusable tv-nav-icon" title="Giriş Yap" aria-label="Giriş Yap">
+                        <i className="fas fa-user" />
                     </button>
                 )}
             </div>
-        </nav>
+        </header>
     );
 });
 
@@ -302,7 +195,7 @@ export const MobileNav = memo(({ activeTab, onLogout, user }) => {
         if (user?.role === 'admin') {
             items.push({ id: 'Admin', icon: 'fas fa-user-shield', label: 'Admin', path: '/admin' });
         }
-        if (window.NoxisAppBridge || window.AndroidBridge) {
+        if (window.NoxisDesktop || window.NoxisAppBridge || window.AndroidBridge) {
             items.push({ id: 'Downloads', icon: 'fas fa-download', label: 'İndirilenler', isBridgeCall: true });
         }
         return items;
@@ -310,6 +203,10 @@ export const MobileNav = memo(({ activeTab, onLogout, user }) => {
 
     const handleNav = (item) => {
         if (item.isBridgeCall) {
+            if (window.NoxisDesktop) {
+                navigate('/downloads');
+                return;
+            }
             const bridge = window.NoxisAppBridge || window.AndroidBridge;
             if (bridge) bridge.openDownloads();
             return;
@@ -338,7 +235,16 @@ const formatEpisodeMeta = (season, episode) => {
     return `${season}. Sezon • ${episode}. Bölüm`;
 };
 
-export const Card = memo(({ movie, onSelect, layout = 'portrait', progress = 0 }) => {
+export const Card = memo(({
+    movie,
+    onSelect,
+    layout = 'portrait',
+    progress = 0,
+    rowKey = 'row',
+    index = 0,
+    onFocusItem,
+    isSpotlight = false
+}) => {
     const isLandscape = layout === 'landscape';
     const imgPath = isLandscape
         ? (movie.backdrop_path || movie.poster_path)
@@ -346,12 +252,20 @@ export const Card = memo(({ movie, onSelect, layout = 'portrait', progress = 0 }
     const watched = isWatched(movie.id, movie.season, movie.episode);
     const hasValidImage = imgPath && imgPath !== 'null' && imgPath !== 'undefined';
     const episodeMeta = formatEpisodeMeta(movie.season, movie.episode);
+    const mediaType = movie.media_type || (movie.first_air_date ? 'tv' : 'movie');
+    const title = movie.title || movie.name || 'İçerik';
+    const year = (movie.release_date || movie.first_air_date || '').slice(0, 4);
+    const rating = Number(movie.vote_average || 0).toFixed(1);
 
     return (
         <button
             tabIndex="0"
             onClick={() => onSelect(movie)}
-            className={`poster-card focusable ${isLandscape ? 'card-landscape' : 'card-portrait'}`}
+            onFocus={() => onFocusItem?.(movie, index)}
+            onMouseEnter={() => onFocusItem?.(movie, index)}
+            className={`focusable tv-card tv-card-${isLandscape ? 'landscape' : 'portrait'} ${isSpotlight ? 'tv-card-active' : ''}`}
+            data-focus-id={`${rowKey}-${movie.id}-${index}`}
+            data-tv-focus-index={index}
         >
             {watched && (
                 <div className="watched-badge">
@@ -364,10 +278,11 @@ export const Card = memo(({ movie, onSelect, layout = 'portrait', progress = 0 }
                     <div className="continue-progress-bar" style={{ width: `${progress}%` }}></div>
                 </div>
             )}
+            <span className="tv-card-media">
             {hasValidImage ? (
                 <SmartImage
                     src={isLandscape ? "https://image.tmdb.org/t/p/w780" + imgPath : POSTER_IMG + imgPath}
-                    alt={movie.title || movie.name}
+                    alt={title}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
             ) : (
@@ -384,16 +299,20 @@ export const Card = memo(({ movie, onSelect, layout = 'portrait', progress = 0 }
                     <i className="fas fa-film"></i>
                 </div>
             )}
-            <div className="card-overlay">
-                <span className="card-title">
-                    <span>{movie.title || movie.name}</span>
-                    {episodeMeta && (
-                        <span className="card-meta">
-                            {episodeMeta}
-                        </span>
-                    )}
+            </span>
+            <span className="tv-card-shade" />
+            <span className="tv-card-focus-layer"><i className="fas fa-play" /></span>
+            <span className="tv-card-copy">
+                <span className="tv-card-title">
+                    {title}
                 </span>
-            </div>
+                <span className="tv-card-meta">
+                    {year && <span>{year}</span>}
+                    <span>{mediaType === 'tv' ? 'Dizi' : 'Film'}</span>
+                    {Number(movie.vote_average) > 0 && <span><i className="fas fa-star" /> {rating}</span>}
+                    {episodeMeta && <span>{episodeMeta}</span>}
+                </span>
+            </span>
         </button>
     );
 });

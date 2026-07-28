@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="wed_bg2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+    <linearGradient id="wed_skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Arka Plan -->
+  <rect width="200" height="200" rx="100" fill="url(#wed_bg2)"/>
+
+  <!-- Elbise ve Yakalar (Jenna Ortega Stili) -->
+  <path d="M25 200 C25 140 175 140 175 200 Z" fill="#0f172a"/>
+  <!-- İkonik Keskin Beyaz Yakalar -->
+  <polygon points="100,165 55,140 85,200" fill="#ffffff"/>
+  <polygon points="100,165 145,140 115,200" fill="#ffffff"/>
+
+  <!-- Saç Örgüleri (Uzun ve Kalın) -->
+  <path d="M40 70 C25 120 30 170 35 190" stroke="#020617" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <path d="M160 70 C175 120 170 170 165 190" stroke="#020617" stroke-width="18" stroke-linecap="round" fill="none"/>
+
+  <!-- Jenna Ortega Yüz Formu (Solgun ve Oval) -->
+  <path d="M64 60 C64 40 136 40 136 60 L132 118 C132 140 68 140 68 118 Z" fill="url(#wed_skin)"/>
+
+  <!-- Çiller -->
+  <circle cx="85" cy="98" r="1" fill="#94a3b8"/>
+  <circle cx="90" cy="95" r="1" fill="#94a3b8"/>
+  <circle cx="110" cy="95" r="1" fill="#94a3b8"/>
+  <circle cx="115" cy="98" r="1" fill="#94a3b8"/>
+
+  <!-- Kahkül (Gözlerin Üzerine Düşen) -->
+  <path d="M55 65 C55 35 145 35 145 65 Q125 55 100 60 Q75 55 55 65 Z" fill="#020617"/>
+
+  <!-- İfadesiz Koyu Kahve Gözler (Ölü Bakış) -->
+  <ellipse cx="82" cy="82" rx="7" ry="5" fill="#ffffff"/>
+  <circle cx="82" cy="82" r="4" fill="#451a03"/>
+  <circle cx="82" cy="82" r="1.5" fill="#000000"/>
+
+  <ellipse cx="118" cy="82" rx="7" ry="5" fill="#ffffff"/>
+  <circle cx="118" cy="82" r="4" fill="#451a03"/>
+  <circle cx="118" cy="82" r="1.5" fill="#000000"/>
+
+  <!-- Düz Çizgi Kaşlar -->
+  <line x1="72" y1="74" x2="90" y2="74" stroke="#020617" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="110" y1="74" x2="128" y2="74" stroke="#020617" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Dudaklar (İnce ve İfadesiz) -->
+  <line x1="92" y1="112" x2="108" y2="112" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

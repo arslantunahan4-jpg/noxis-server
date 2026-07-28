@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="ts_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2a364f"/>
+      <stop offset="100%" stop-color="#0a0d14"/>
+    </radialGradient>
+    <linearGradient id="ts_skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5d6ba"/>
+      <stop offset="60%" stop-color="#e0b187"/>
+      <stop offset="100%" stop-color="#c98a58"/>
+    </linearGradient>
+    <linearGradient id="ts_coat" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#242836"/>
+      <stop offset="100%" stop-color="#0f1118"/>
+    </linearGradient>
+    <linearGradient id="ts_cap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a5568"/>
+      <stop offset="100%" stop-color="#1d232a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle -->
+  <rect width="200" height="200" rx="100" fill="url(#ts_bg)"/>
+
+  <!-- Wool Overcoat & Collar -->
+  <path d="M30 200 C30 140 170 140 170 200 Z" fill="url(#ts_coat)"/>
+  <path d="M85 140 L100 200 L115 140 L108 125 L92 125 Z" fill="#991b1b"/> <!-- Dark Red Tie -->
+  <polygon points="65,130 100,150 82,200" fill="#f8fafc"/> <!-- White Shirt Left -->
+  <polygon points="135,130 100,150 118,200" fill="#f8fafc"/> <!-- White Shirt Right -->
+  <!-- Coat Lapels -->
+  <polygon points="35,160 70,135 90,200" fill="#1e222e"/>
+  <polygon points="165,160 130,135 110,200" fill="#1e222e"/>
+
+  <!-- Neck -->
+  <path d="M82 105 L118 105 L116 135 L84 135 Z" fill="#d49b6a"/>
+
+  <!-- Chiseled Head & Jaw -->
+  <path d="M68 60 C68 42 132 42 132 60 L128 110 C128 132 72 132 72 110 Z" fill="url(#ts_skin)"/>
+  <!-- Cheekbone & Jaw Contour -->
+  <path d="M72 90 L100 130 L128 90 L124 110 C124 130 76 130 76 110 Z" fill="#b87b4b" opacity="0.4"/>
+
+  <!-- Undercut Crop Hair Sides -->
+  <path d="M62 68 C62 50 70 42 70 42 L66 85 Z" fill="#2d3748"/>
+  <path d="M138 68 C138 50 130 42 130 42 L134 85 Z" fill="#2d3748"/>
+
+  <!-- Icy Blue Eyes (Cillian Murphy Signature Stare) -->
+  <ellipse cx="84" cy="78" rx="7" ry="4" fill="#ffffff"/>
+  <circle cx="84" cy="78" r="3.5" fill="#38bdf8"/>
+  <circle cx="84" cy="78" r="1.5" fill="#0f172a"/>
+  
+  <ellipse cx="116" cy="78" rx="7" ry="4" fill="#ffffff"/>
+  <circle cx="116" cy="78" r="3.5" fill="#38bdf8"/>
+  <circle cx="116" cy="78" r="1.5" fill="#0f172a"/>
+
+  <!-- Eyebrows -->
+  <path d="M74 71 Q84 66 93 71" stroke="#2d3748" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <path d="M107 71 Q116 66 126 71" stroke="#2d3748" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Nose & Mouth -->
+  <path d="M102 75 L98 94 L105 94" stroke="#a36638" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <line x1="90" y1="108" x2="110" y2="108" stroke="#881337" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Peaky Baker Boy Flat Cap -->
+  <path d="M38 72 C45 30 155 30 162 72 C130 58 70 58 38 72 Z" fill="url(#ts_cap)"/>
+  <ellipse cx="100" cy="36" rx="8" ry="4" fill="#1a202c"/>
+  <path d="M30 72 Q100 58 170 72 Q100 82 30 72 Z" fill="#0f172a"/>
+
+  <!-- Lighted Cigarette & Smoke Ring -->
+  <line x1="104" y1="108" x2="80" y2="118" stroke="#f8fafc" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="78" cy="119" r="2.5" fill="#ef4444"/>
+  <path d="M74 118 C65 115 60 110 58 100" stroke="#cbd5e1" stroke-width="2" opacity="0.6" fill="none" stroke-dasharray="2,2"/>
+</svg>

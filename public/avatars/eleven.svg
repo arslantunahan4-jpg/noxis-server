@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="el_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#el_bg)"/>
+
+  <!-- Short Buzz Hair -->
+  <ellipse cx="100" cy="74" rx="40" ry="42" fill="#475569"/>
+
+  <!-- Face -->
+  <path d="M68 60 C68 45 132 45 132 60 L128 114 C128 135 72 135 72 114 Z" fill="#fed7aa"/>
+
+  <!-- Fierce Eyes -->
+  <circle cx="84" cy="80" r="4.5" fill="#1e293b"/>
+  <circle cx="116" cy="80" r="4.5" fill="#1e293b"/>
+
+  <!-- Nose & Nosebleed Droplet -->
+  <path d="M102 78 L99 94 L104 94" stroke="#ea580c" stroke-width="2.5" fill="none"/>
+  <path d="M99 94 L97 108 C97 111 101 111 101 108 Z" fill="#dc2626"/>
+
+  <!-- Mouth -->
+  <line x1="90" y1="114" x2="110" y2="114" stroke="#9f1239" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Jacket & Pink Collared Dress -->
+  <path d="M35 200 C35 150 165 150 165 200 Z" fill="#0d9488"/>
+  <polygon points="82,150 100,175 118,150" fill="#f472b6"/>
+</svg>

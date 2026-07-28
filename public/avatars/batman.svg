@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <linearGradient id="bm_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b6cb0"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="80" fill="url(#bm_bg)"/>
+  <!-- Suit Body -->
+  <path d="M25 160 C25 110 135 110 135 160 Z" fill="#171923"/>
+  <ellipse cx="80" cy="130" rx="18" ry="10" fill="#d69e2e"/>
+  <path d="M68 130 Q80 122 92 130 Q86 135 80 131 Q74 135 68 130 Z" fill="#171923"/>
+  <!-- Bat Cowl -->
+  <path d="M46 40 L58 72 L102 72 L114 40 L102 98 C102 112 58 112 58 98 Z" fill="#2d3748"/>
+  <!-- Ears -->
+  <polygon points="46,60 54,20 62,60" fill="#2d3748"/>
+  <polygon points="114,60 106,20 98,60" fill="#2d3748"/>
+  <!-- Glowing Eyes -->
+  <polygon points="60,68 74,71 70,64" fill="#ffffff"/>
+  <polygon points="100,68 86,71 90,64" fill="#ffffff"/>
+  <!-- Jaw -->
+  <path d="M62 85 C62 104 98 104 98 85 Z" fill="#e8b98a"/>
+</svg>

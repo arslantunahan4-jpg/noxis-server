@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="dn_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#dn_bg)"/>
+
+  <!-- Long Platinum Hair Back -->
+  <path d="M50 60 C30 110 30 160 55 200 L145 200 C170 160 170 110 150 60 Z" fill="#f8fafc"/>
+
+  <!-- Face -->
+  <path d="M68 60 C68 45 132 45 132 60 L128 114 C128 135 72 135 72 114 Z" fill="#ffedd5"/>
+
+  <!-- Braids -->
+  <path d="M60 55 C60 100 70 120 70 120" stroke="#e2e8f0" stroke-width="8" stroke-linecap="round" fill="none"/>
+  <path d="M140 55 C140 100 130 120 130 120" stroke="#e2e8f0" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+  <!-- Valyrian Violet Eyes -->
+  <circle cx="84" cy="80" r="4.5" fill="#7e22ce"/>
+  <circle cx="116" cy="80" r="4.5" fill="#7e22ce"/>
+
+  <!-- Mouth -->
+  <line x1="90" y1="112" x2="110" y2="112" stroke="#be123c" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Targaryen Dress & Dragon Chain -->
+  <path d="M35 200 C35 150 165 150 165 200 Z" fill="#1e1b4b"/>
+  <circle cx="100" cy="160" r="10" fill="#eab308"/>
+</svg>

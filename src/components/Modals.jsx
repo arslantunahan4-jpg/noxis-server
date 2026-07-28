@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SmartImage, ORIGINAL_IMG, BACKDROP_IMG, POSTER_IMG } from './Shared';
@@ -76,6 +76,167 @@ const createSlug = (text) => {
     return slug;
 };
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const rgbToHsl = (rgb = [10, 10, 12]) => {
+    const [red, green, blue] = rgb.map(value => clamp(Number(value) || 0, 0, 255) / 255);
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const lightness = (max + min) / 2;
+
+    if (max === min) {
+        return [0, 0, lightness];
+    }
+
+    const delta = max - min;
+    const saturation = lightness > 0.5
+        ? delta / (2 - max - min)
+        : delta / (max + min);
+
+    let hue = 0;
+    if (max === red) {
+        hue = (green - blue) / delta + (green < blue ? 6 : 0);
+    } else if (max === green) {
+        hue = (blue - red) / delta + 2;
+    } else {
+        hue = (red - green) / delta + 4;
+    }
+
+    return [hue / 6, saturation, lightness];
+};
+
+const hslToRgb = ([hue, saturation, lightness]) => {
+    if (saturation === 0) {
+        const value = Math.round(lightness * 255);
+        return [value, value, value];
+    }
+
+    const hueToRgb = (p, q, t) => {
+        let localT = t;
+        if (localT < 0) localT += 1;
+        if (localT > 1) localT -= 1;
+        if (localT < 1 / 6) return p + (q - p) * 6 * localT;
+        if (localT < 1 / 2) return q;
+        if (localT < 2 / 3) return p + (q - p) * (2 / 3 - localT) * 6;
+        return p;
+    };
+
+    const q = lightness < 0.5
+        ? lightness * (1 + saturation)
+        : lightness + saturation - lightness * saturation;
+    const p = 2 * lightness - q;
+
+    return [
+        Math.round(hueToRgb(p, q, hue + 1 / 3) * 255),
+        Math.round(hueToRgb(p, q, hue) * 255),
+        Math.round(hueToRgb(p, q, hue - 1 / 3) * 255)
+    ];
+};
+
+const toRgb = ([red, green, blue]) => `rgb(${red}, ${green}, ${blue})`;
+const toRgba = ([red, green, blue], alpha) => `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+
+const createDetailPalette = (sourceRgb = [10, 10, 12]) => {
+    const [hue, saturation, lightness] = rgbToHsl(sourceRgb);
+    const isNeutral = saturation < 0.08;
+
+    const accent = isNeutral
+        ? [86, 92, 102]
+        : hslToRgb([
+            hue,
+            clamp(saturation * 0.78, 0.16, 0.46),
+            clamp(lightness * 0.82, 0.20, 0.34)
+        ]);
+
+    const glow = isNeutral
+        ? [116, 124, 138]
+        : hslToRgb([
+            hue,
+            clamp(saturation * 0.72, 0.18, 0.50),
+            clamp(lightness * 0.95, 0.26, 0.42)
+        ]);
+
+    const deep = isNeutral
+        ? [9, 10, 12]
+        : hslToRgb([
+            hue,
+            clamp(saturation * 0.45, 0.10, 0.28),
+            0.09
+        ]);
+
+    return {
+        accent: toRgb(accent),
+        accentSoft: toRgba(accent, 0.16),
+        accentBorder: toRgba(accent, 0.38),
+        accentGlow: toRgba(glow, 0.28),
+        accentShadow: toRgba(glow, 0.30),
+        accentBgStrong: toRgba(glow, 0.22),
+        accentBgSoft: toRgba(accent, 0.14),
+        accentBgFaint: toRgba(accent, 0.08),
+        contentTint: toRgba(deep, 0.64)
+    };
+};
+
+const DOWNLOAD_AUDIO_REFERERS = {
+    diziyou: 'https://www.diziyou.one/',
+    dizimom: 'https://hdmomplayer.com/',
+    vidmody: 'https://vidmody.com/'
+};
+
+const ensureDownloadAudioUrl = (url, provider) => {
+    if (!url) return null;
+    const activeUrl = String(url);
+    if (
+        activeUrl.includes('workers.dev') ||
+        activeUrl.includes('mode=proxy') ||
+        activeUrl.includes('video-proxy')
+    ) {
+        return activeUrl;
+    }
+
+    const referer = DOWNLOAD_AUDIO_REFERERS[provider];
+    if (!referer) return activeUrl;
+
+    return `${WORKER_URL}?url=${encodeURIComponent(activeUrl)}&mode=proxy&referer=${encodeURIComponent(referer)}`;
+};
+
+const buildDownloadAudioTracks = (tracks) => {
+    if (!tracks) return null;
+    if (Array.isArray(tracks)) return tracks.length > 0 ? tracks : null;
+
+    const provider = tracks.provider || null;
+    const kind = tracks.switchStrategy === 'source' || provider === 'diziyou' || provider === 'dizimom'
+        ? 'source'
+        : 'audio';
+    const downloadTracks = [];
+    const dubUrl = ensureDownloadAudioUrl(tracks.dub, provider);
+    const originalUrl = ensureDownloadAudioUrl(tracks.original, provider);
+
+    if (dubUrl) {
+        downloadTracks.push({
+            name: 'Turkce Dublaj',
+            lang: 'tr',
+            url: dubUrl,
+            trackId: 'dub',
+            provider,
+            kind
+        });
+    }
+
+    if (originalUrl && originalUrl !== dubUrl) {
+        downloadTracks.push({
+            name: 'Orijinal',
+            lang: 'en',
+            url: originalUrl,
+            trackId: 'original',
+            provider,
+            kind
+        });
+    }
+
+    return downloadTracks.length > 0 ? downloadTracks : null;
+};
+
 export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = false, autoSeason = 1, autoEpisode = 1 }) => {
     const [details, setDetails] = useState(null);
     const [seasons, setSeasons] = useState([]);
@@ -109,12 +270,17 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
         let isMounted = true;
         setDominantColor([10, 10, 12]);
 
-        const posterPath = movie.poster_path || movie.backdrop_path;
-        if (posterPath) {
-            const url = `${POSTER_IMG}${posterPath}`;
+        const imagePath = movie.backdrop_path || movie.poster_path;
+        if (imagePath) {
+            const imageBase = movie.backdrop_path ? BACKDROP_IMG : POSTER_IMG;
+            const url = `${imageBase}${imagePath}`;
             getDominantColor(url).then(color => {
                 if (isMounted) {
                     setDominantColor(color);
+                }
+            }).catch(() => {
+                if (isMounted) {
+                    setDominantColor([10, 10, 12]);
                 }
             });
         }
@@ -123,6 +289,8 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             isMounted = false;
         };
     }, [movie]);
+
+    const detailPalette = useMemo(() => createDetailPalette(dominantColor), [dominantColor]);
 
     const [showMagnetPlayer, setShowMagnetPlayer] = useState(false);
         const [streamUrl, setStreamUrl] = useState('');
@@ -141,6 +309,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             const title = isSeries 
                 ? `${movie.title || movie.name} - S${selectedSeason}E${epNum}` 
                 : (movie.title || movie.name);
+            const audioTracksForDownload = buildDownloadAudioTracks(vidmodyAudioTracks || diziyouAudioTracks || dizimomAudioTracks);
             
             console.log("[DetailModal] Intercepted streamUrl for download:", streamUrl);
             
@@ -154,7 +323,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                 isSeries ? selectedSeason : null, 
                 isSeries ? epNum : null,
                 JSON.stringify(subtitles),
-                JSON.stringify(vidmodyAudioTracks || diziyouAudioTracks || dizimomAudioTracks || null),
+                audioTracksForDownload ? JSON.stringify(audioTracksForDownload) : null,
                 selectedQuality,
                 wifiOnlySetting
             );
@@ -441,7 +610,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     const diziyouTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Diziyou timeout')), 10000));
                     const diziyouSources = await Promise.race([diziyouPromise, diziyouTimeout]);
 
-                    const videoUrl = diziyouSources?.original || diziyouSources?.turkish_dub;
+                    const videoUrl = diziyouSources?.turkish_dub || diziyouSources?.original;
 
                     if (diziyouSources && videoUrl) {
                         const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(videoUrl)}&mode=proxy&referer=${encodeURIComponent('https://www.diziyou.one/')}`;
@@ -474,6 +643,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
 
                         if (diziyouSources.hasOriginal && diziyouSources.hasDub) {
                             setDiziyouAudioTracks({
+                                provider: 'diziyou',
                                 original: diziyouSources.original,
                                 dub: diziyouSources.turkish_dub,
                                 active: videoUrl === diziyouSources.turkish_dub ? 'dub' : 'original'
@@ -497,7 +667,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
             // ===== STEP 3: Try StreamIMDb via Backend API =====
             if (imdbId) {
                 const streamimdbController = new AbortController();
-                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
+                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 22000);
 
                 try {
                     const streamimdbSource = await findStreamimdbSource(
@@ -640,15 +810,16 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                         // Set up audio tracks if both sub and dub available
                         if (dizimomSources.original && dizimomSources.turkish_dub) {
                             setDizimomAudioTracks({
+                                provider: 'dizimom',
                                 original: dizimomSources.original,
                                 dub: dizimomSources.turkish_dub,
-                                active: 'original'
+                                active: 'dub'
                             });
                         } else {
                             setDizimomAudioTracks(null);
                         }
 
-                        const initialUrl = dizimomSources.original || dizimomSources.turkish_dub;
+                        const initialUrl = dizimomSources.turkish_dub || dizimomSources.original;
                         const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(initialUrl)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                         setStreamUrl(proxiedUrl);
                         setShowMagnetPlayer(true);
@@ -777,45 +948,62 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
         }
     };
 
-    const [r, g, b] = dominantColor;
-    console.log("[DetailModal] dominantColor extracted:", dominantColor);
-
     return (
         <motion.div
-            className="detail-view-container"
+            className="tv-screen tv-detail-page"
             initial={{ opacity: 0, y: '100%' }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '30%' }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             style={{
-                backgroundImage: `radial-gradient(circle at 15% 30%, rgba(${r}, ${g}, ${b}, 0.48) 0%, transparent 65%), radial-gradient(circle at 85% 75%, rgba(${r}, ${g}, ${b}, 0.32) 0%, transparent 60%), radial-gradient(circle at 50% 50%, rgba(${r}, ${g}, ${b}, 0.18) 0%, transparent 50%)`,
+                '--detail-accent': detailPalette.accent,
+                '--detail-accent-soft': detailPalette.accentSoft,
+                '--detail-accent-border': detailPalette.accentBorder,
+                '--detail-accent-glow': detailPalette.accentGlow,
+                '--detail-accent-shadow': detailPalette.accentShadow,
+                '--detail-accent-bg-strong': detailPalette.accentBgStrong,
+                '--detail-accent-bg-soft': detailPalette.accentBgSoft,
+                '--detail-accent-bg-faint': detailPalette.accentBgFaint,
+                '--detail-content-tint': detailPalette.contentTint,
+                backgroundImage: 'radial-gradient(circle at 15% 30%, var(--detail-accent-bg-strong) 0%, transparent 58%), radial-gradient(circle at 85% 72%, var(--detail-accent-bg-soft) 0%, transparent 54%), radial-gradient(circle at 48% 50%, var(--detail-accent-bg-faint) 0%, transparent 48%)',
                 backgroundColor: '#070709'
             }}
         >
-            <div className="detail-hero-wrapper">
+            <div className="tv-detail-backdrop">
                 <SmartImage
                     src={ORIGINAL_IMG + (movie.backdrop_path || movie.poster_path)}
                     className="detail-hero-img"
                     alt={movie.title || movie.name}
                 />
             </div>
+            <div className="tv-detail-vignette" />
 
             <div 
                 className="detail-content-layer"
                 style={{
-                    background: `linear-gradient(to bottom, transparent 0%, rgba(7, 7, 9, 0.15) 15%, rgba(7, 7, 9, 0.45) 45%, rgba(7, 7, 9, 0.72) 75%, rgba(7, 7, 9, 0.85) 100%)`
+                    background: 'linear-gradient(to bottom, transparent 0%, rgba(7, 7, 9, 0.12) 16%, var(--detail-content-tint) 48%, rgba(7, 7, 9, 0.78) 78%, rgba(7, 7, 9, 0.94) 100%)'
                 }}
             >
                 <button
                     tabIndex="0"
                     onClick={onClose}
-                    className="focusable detail-back-btn"
+                    className="focusable tv-back-pill"
                 >
                     <i className="fas fa-arrow-left"></i>
+                    <span>Geri</span>
                 </button>
 
-                <div style={{ maxWidth: '1200px' }}>
+                <div className="tv-detail-hero">
+                    <div className="tv-detail-poster" aria-hidden="true">
+                        <SmartImage
+                            src={POSTER_IMG + (movie.poster_path || movie.backdrop_path)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            alt=""
+                        />
+                    </div>
+                    <div className="tv-detail-copy" style={{ maxWidth: '1200px' }}>
                     <motion.h1
+                        className="tv-detail-title"
                         initial={{ y: 30, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.6 }}
@@ -832,6 +1020,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     </motion.h1>
 
                     <motion.div
+                        className="tv-detail-meta"
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.3, duration: 0.6 }}
@@ -864,6 +1053,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     </motion.div>
 
                     <motion.p
+                        className="tv-detail-overview"
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.4, duration: 0.6 }}
@@ -879,6 +1069,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                     </motion.p>
 
                     <motion.div
+                        className="tv-detail-actions"
                         initial={{ y: 20, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.5, duration: 0.6 }}
@@ -887,7 +1078,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                         <button
                             tabIndex="0"
                             onClick={() => onPlay(movie, isSeries ? selectedSeason : 1, 1)}
-                            className="focusable detail-play-btn"
+                            className="focusable tv-action tv-action-primary"
                         >
                             <i className="fas fa-play"></i>
                             <span>Oynat</span>
@@ -896,7 +1087,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             <button
                                 tabIndex="0"
                                 onClick={() => setShowTrailer(true)}
-                                className="focusable glass-button"
+                                className="focusable tv-action tv-action-secondary"
                             >
                                 <i className="fas fa-film"></i>
                                 <span>Fragman</span>
@@ -906,17 +1097,17 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             <button
                                 tabIndex="0"
                                 onClick={handleDownloadMovie}
-                                className="focusable glass-button download-btn"
+                                className="focusable tv-action tv-action-secondary download-btn"
                                 disabled={downloadingId !== null}
                                 style={{
-                                    border: '1px solid rgba(191, 90, 242, 0.4)',
-                                    background: downloadingId === 'movie' ? 'rgba(191, 90, 242, 0.25)' : 'var(--liquid-glass-bg)'
+                                    border: '1px solid var(--detail-accent-border)',
+                                    background: downloadingId === 'movie' ? 'var(--detail-accent-soft)' : 'var(--liquid-glass-bg)'
                                 }}
                             >
                                 {downloadingId === 'movie' ? (
-                                    <i className="fas fa-spinner fa-spin" style={{ color: '#bf5af2' }}></i>
+                                    <i className="fas fa-spinner fa-spin" style={{ color: 'var(--detail-accent)' }}></i>
                                 ) : (
-                                    <i className="fas fa-download" style={{ color: '#bf5af2' }}></i>
+                                    <i className="fas fa-download" style={{ color: 'var(--detail-accent)' }}></i>
                                 )}
                                 <span>{downloadingId === 'movie' ? 'Hazırlanıyor...' : 'Cihaza İndir'}</span>
                             </button>
@@ -1015,11 +1206,11 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                                                              width: '32px',
                                                              height: '32px',
                                                              borderRadius: '50%',
-                                                             background: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'rgba(191, 90, 242, 0.35)' : 'rgba(0, 0, 0, 0.6)',
+                                                             background: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'var(--detail-accent-soft)' : 'rgba(0, 0, 0, 0.6)',
                                                              backdropFilter: 'blur(10px)',
                                                              WebkitBackdropFilter: 'blur(10px)',
-                                                             border: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '1px solid #bf5af2' : '1px solid rgba(255, 255, 255, 0.2)',
-                                                             color: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '#bf5af2' : 'white',
+                                                             border: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? '1px solid var(--detail-accent-border)' : '1px solid rgba(255, 255, 255, 0.2)',
+                                                             color: downloadingId === `s${selectedSeason}e${ep.episode_number}` ? 'var(--detail-accent)' : 'white',
                                                              display: 'flex',
                                                              alignItems: 'center',
                                                              justifyContent: 'center',
@@ -1142,6 +1333,7 @@ export const DetailModal = ({ movie, onClose, onPlay, onOpenDetail, autoPlay = f
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
 
@@ -1715,12 +1907,16 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                 if (!cancelled) {
                     const fetchOfflineMetadata = async () => {
                         let localSubs = [];
+                        let localAudioTracks = null;
                         try {
                             const metadataUrl = movie.localUrl.replace('video.mp4', 'video.info.json');
                             console.log("[Offline Player] Yerel metadata okunuyor:", metadataUrl);
                             const response = await fetch(metadataUrl);
                             if (response.ok) {
                                 const metadata = await response.json();
+                                if (metadata?.audioTracks) {
+                                    localAudioTracks = metadata.audioTracks;
+                                }
                                 if (metadata && Array.isArray(metadata.subtitles)) {
                                     localSubs = metadata.subtitles.map(s => ({
                                         lang: s.lang,
@@ -1737,7 +1933,8 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                         if (!cancelled) {
                             applyResolvedSource('vidmody', {
                                 url: movie.localUrl,
-                                subtitles: localSubs
+                                subtitles: localSubs,
+                                vidmodyTracks: localAudioTracks
                             });
                             setLoading(false);
                         }
@@ -1870,10 +2067,10 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                     const diziyouTimeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 10000));
                     const sources = await Promise.race([diziyouPromise, diziyouTimeoutPromise]);
 
-                    const availableUrl = sources?.original || sources?.turkish_dub;
+                    const availableUrl = sources?.turkish_dub || sources?.original;
 
                     if (sources && availableUrl && !cancelled) {
-                        const url = sources.original || sources.turkish_dub;
+                        const url = sources.turkish_dub || sources.original;
 
                         const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Diziyou');
                         try {
@@ -1928,7 +2125,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
             // Step 3: Try StreamIMDb via Backend API
             if (imdbId && !cancelled) {
                 const streamimdbController = new AbortController();
-                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 10000);
+                const streamimdbTimeout = setTimeout(() => streamimdbController.abort(), 22000);
 
                 try {
                     const sources = await findStreamimdbSource(
@@ -2064,7 +2261,7 @@ export const Player = ({ movie, onClose, initialSeason, initialEpisode }) => {
                     const sources = await Promise.race([dizimomPromise, dizimomTimeoutPromise]);
 
                     if (sources && (sources.original || sources.turkish_dub) && !cancelled) {
-                        const initialUrl = sources.original || sources.turkish_dub;
+                        const initialUrl = sources.turkish_dub || sources.original;
                         const proxiedUrl = `${WORKER_URL}?url=${encodeURIComponent(initialUrl)}&mode=proxy&referer=${encodeURIComponent('https://hdmomplayer.com/')}`;
                         
                         const sourceSubtitles = normalizeSourceSubtitles(sources.subtitles || [], 'Dizimom');

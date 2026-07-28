@@ -215,36 +215,40 @@ const SearchPage = () => {
     };
 
     return (
-        <div style={{ paddingBottom: '80px', paddingTop: '20px', minHeight: '100dvh', background: 'var(--bg-primary)' }}>
-            <div style={{ padding: '0 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                    <h1 className="text-2xl font-bold text-white">Keşfet</h1>
+        <div className="tv-screen tv-search-page">
+            <section className="tv-search-hero">
+                <div className="tv-search-bg" />
+                <div className="tv-search-fade" />
+                <div className="tv-search-copy">
+                    <span className="tv-kicker">Noxis arama</span>
+                    <div className="desktop-search-heading">
+                        <h1>{searchQuery ? searchQuery : 'Keşfet'}</h1>
                     <button onClick={() => setShowFilters(!showFilters)} className="filter-toggle-btn">
                         <i className={`fas fa-${showFilters ? 'times' : 'sliders-h'}`}></i>
                         <span>{showFilters ? 'Kapat' : 'Filtrele'}</span>
                     </button>
-                </div>
+                    </div>
 
-                <div className="search-input-container" style={{ marginBottom: '16px' }}>
-                    <i className="fas fa-search search-icon"></i>
-                    <input
-                        type="text"
-                        className="focusable search-input"
-                        placeholder="Film, dizi veya oyuncu ara..."
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                    />
-                </div>
+                    <div className="tv-search-box">
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                            type="text"
+                            className="focusable search-input"
+                            placeholder="Film, dizi veya oyuncu ara..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                        />
+                    </div>
 
-                <AnimatePresence>
-                    {showFilters && !searchQuery && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="filter-panel"
-                            style={{ overflow: 'hidden' }}
-                        >
+                    <AnimatePresence>
+                        {showFilters && !searchQuery && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="filter-panel"
+                                style={{ overflow: 'hidden' }}
+                            >
                             <div className="filter-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                                 <div className="filter-group">
                                     <label className="filter-label">Tür</label>
@@ -328,46 +332,57 @@ const SearchPage = () => {
                                     <i className="fas fa-undo"></i> Temizle
                                 </button>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </section>
 
-            <div className="search-grid" style={{ padding: '0 16px' }}>
+            <section className="tv-search-results">
+                <div className="tv-rail-heading">
+                    <span>{isDiscoverLoading ? 'Hazırlanıyor' : `${(searchQuery ? searchResults : discoverResults).length} içerik`}</span>
+                    <h2>{searchQuery ? 'Sonuçlar' : 'Öne çıkanlar'}</h2>
+                </div>
+                <div className="tv-result-grid">
                 {(searchQuery ? searchResults : discoverResults)
                     .filter(m => m.poster_path)
                     .map(m => (
                     <button
                         key={`${m.id}-${m.media_type || 'unknown'}`}
                         onClick={() => openDetail(m)}
-                        className="focusable poster-card search-grid-card"
+                        className="focusable tv-card tv-card-portrait"
                     >
+                        <span className="tv-card-media">
                         <SmartImage
                             src={POSTER_IMG + m.poster_path}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
+                        </span>
+                        <span className="tv-card-shade" />
+                        <span className="tv-card-focus-layer"><i className="fas fa-play" /></span>
                         <div className="card-rating">
                             <i className="fas fa-star"></i>
                             {(m.vote_average || 0).toFixed(1)}
                         </div>
-                        <div className="card-overlay">
-                            <span className="card-title">{m.title || m.name}</span>
-                        </div>
+                        <span className="tv-card-copy">
+                            <span className="tv-card-title">{m.title || m.name}</span>
+                        </span>
                     </button>
                 ))}
-            </div>
-             {!searchQuery && discoverPage < discoverTotalPages && (
-                 <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                </div>
+                 {!searchQuery && discoverPage < discoverTotalPages && (
+                     <div className="tv-search-load-more">
                     <button
                         onClick={() => discoverContent(discoverPage + 1, false)}
-                        className="focusable load-more-card"
+                        className="focusable tv-action tv-action-secondary"
                         disabled={isDiscoverLoading}
                         style={{ padding: '10px 20px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none' }}
                     >
                         {isDiscoverLoading ? 'Yükleniyor...' : 'Daha Fazla Yükle'}
                     </button>
-                 </div>
-             )}
+                     </div>
+                 )}
+            </section>
         </div>
     );
 };

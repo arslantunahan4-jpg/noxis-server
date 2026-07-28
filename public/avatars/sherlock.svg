@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="sh_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#sh_bg)"/>
+
+  <!-- Curly Hair -->
+  <path d="M55 60 C45 35 155 35 145 60 Z" fill="#1e293b"/>
+
+  <!-- Face -->
+  <path d="M68 60 C68 45 132 45 132 60 L128 114 C128 135 72 135 72 114 Z" fill="#feebc8"/>
+
+  <!-- Sharp Eyes -->
+  <circle cx="84" cy="80" r="4" fill="#0284c7"/>
+  <circle cx="116" cy="80" r="4" fill="#0284c7"/>
+
+  <!-- High Popped Overcoat Collar -->
+  <path d="M35 200 C35 140 165 140 165 200 Z" fill="#334155"/>
+  <polygon points="65,140 85,200 100,160" fill="#475569"/>
+  <polygon points="135,140 115,200 100,160" fill="#475569"/>
+</svg>

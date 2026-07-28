@@ -1,257 +1,129 @@
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 import { Card, SkeletonRow } from './Shared';
 
-import { useTVScroll } from '../hooks/useTVScroll';
+const GAP = 24;
+const WINDOW_BEHIND = 2;
+const WINDOW_AHEAD = 7;
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-// Helper to get dimensions based on current window width matching index.css
-const getItemDimensions = (layout, windowWidth) => {
-    let fontSize = 16;
-    if (windowWidth > 1600) fontSize = windowWidth * 0.0085; // 0.85vw
-    else if (windowWidth > 1024) fontSize = 15;
-    else if (windowWidth > 768) fontSize = 14;
+const cardWidthFor = (layout, viewportWidth) => (
+    layout === 'landscape'
+        ? clamp(viewportWidth * 0.268, 430, 560)
+        : clamp(viewportWidth * 0.142, 220, 286)
+);
 
-    const isLandscape = layout === 'landscape';
-    let width, gap;
+export const VirtualRow = memo(({
+    title,
+    data,
+    onSelect,
+    onLoadMore,
+    isLoadingMore,
+    hasMore = true,
+    layout = 'portrait'
+}) => {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [isFocused, setIsFocused] = useState(false);
+    const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth || 1920);
 
-    if (windowWidth > 1600) {
-        // Large screens
-        width = (isLandscape ? 24 : 14) * fontSize;
-        gap = 1.2 * fontSize;
-    } else if (windowWidth > 768) {
-        // Medium screens
-        width = isLandscape ? 320 : 180;
-        gap = 16;
-    } else {
-        // Mobile/Standard
-        width = isLandscape ? 260 : 140;
-        gap = 12;
-    }
-
-    return { width, gap };
-};
-
-export const VirtualRow = memo(({ title, data, onSelect, onLoadMore, isLoadingMore, hasMore = true, layout = 'portrait' }) => {
-    const containerRef = useTVScroll(); // Use TV Scroll Hook instead of plain useRef
-    const [containerWidth, setContainerWidth] = useState(0);
-    const [itemDims, setItemDims] = useState({ width: 0, gap: 0 });
-
-    // Scroll Arrow States - use refs to avoid re-renders
-    const showLeftArrowRef = useRef(false);
-    const showRightArrowRef = useRef(true);
-    const [, forceArrowUpdate] = useState(0);
-
-    // Throttle ref for scroll handler
-    const scrollThrottleRef = useRef(null);
-
-    // Only store the range indices in state to minimize re-renders
-    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10 });
-
-    // Refs for values needed in scroll handler to avoid closure staleness without re-binding
-    const itemDimsRef = useRef(itemDims);
-    const dataLengthRef = useRef(data?.length || 0);
-    const containerWidthRef = useRef(0);
-
-    // Sync refs
-    useEffect(() => { itemDimsRef.current = itemDims; }, [itemDims]);
-    useEffect(() => { dataLengthRef.current = data?.length || 0; }, [data]);
-    useEffect(() => { containerWidthRef.current = containerWidth; }, [containerWidth]);
-
-    // 1. Measure Container & Dimensions on Resize
     useEffect(() => {
-        const updateDimensions = () => {
-            if (containerRef.current) {
-                const el = containerRef.current;
-                setContainerWidth(el.clientWidth);
-
-                showLeftArrowRef.current = el.scrollLeft > 10;
-                showRightArrowRef.current = el.scrollLeft < el.scrollWidth - el.clientWidth - 10;
-                forceArrowUpdate(n => n + 1);
-
-                calculateRange(el.scrollLeft);
-            }
-            setItemDims(getItemDimensions(layout, window.innerWidth));
-        };
-
-        const timer = setTimeout(updateDimensions, 50);
-        window.addEventListener('resize', updateDimensions);
-        return () => {
-            window.removeEventListener('resize', updateDimensions);
-            clearTimeout(timer);
-        };
-    }, [layout, data]);
-
-    const calculateRange = useCallback((scrollLeft) => {
-        const { width: itemWidth, gap } = itemDimsRef.current;
-        const totalItemWidth = itemWidth + gap;
-        if (totalItemWidth === 0) return;
-
-        const overscan = 4; // Render extra items
-        const visibleCount = Math.ceil(containerWidthRef.current / totalItemWidth);
-
-        const newStart = Math.max(0, Math.floor(scrollLeft / totalItemWidth) - overscan);
-        const newEnd = Math.min(dataLengthRef.current, Math.floor(scrollLeft / totalItemWidth) + visibleCount + overscan);
-
-        setVisibleRange(prev => {
-            if (prev.start !== newStart || prev.end !== newEnd) {
-                return { start: newStart, end: newEnd };
-            }
-            return prev;
-        });
+        const onResize = () => setViewportWidth(window.innerWidth || 1920);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
     }, []);
 
-    // 2. Optimized Handle Scroll with throttle
-    const handleScroll = useCallback((e) => {
-        const target = e.target;
-        const scrollLeft = target.scrollLeft;
-        const scrollWidth = target.scrollWidth;
-        const clientWidth = target.clientWidth;
+    const handleCardFocus = useCallback((item, itemIndex) => {
+        setActiveIndex(itemIndex);
+        setIsFocused(true);
+    }, []);
 
-        const newLeftArrow = scrollLeft > 10;
-        const newRightArrow = scrollLeft < scrollWidth - clientWidth - 10;
-        
-        if (newLeftArrow !== showLeftArrowRef.current || newRightArrow !== showRightArrowRef.current) {
-            showLeftArrowRef.current = newLeftArrow;
-            showRightArrowRef.current = newRightArrow;
-            forceArrowUpdate(n => n + 1);
-        }
+    if (!data || data.length === 0) return <SkeletonRow />;
 
-        if (scrollThrottleRef.current) return;
-        scrollThrottleRef.current = requestAnimationFrame(() => {
-            calculateRange(scrollLeft);
-            scrollThrottleRef.current = null;
-        });
-    }, [calculateRange]);
-
-    // 3. Virtualization Logic
-    const { width: itemWidth, gap } = itemDims;
-    const totalItemWidth = itemWidth + gap;
-
-    if (!data || data.length === 0 || totalItemWidth === 0) return <SkeletonRow />;
-
-    const totalContentWidth = data.length * totalItemWidth;
-
-    const visibleItems = [];
-    // Ensure we don't go out of bounds
-    const safeEnd = Math.min(data.length, visibleRange.end);
-
-    for (let i = visibleRange.start; i < safeEnd; i++) {
-        visibleItems.push({
-            ...data[i],
-            virtualIndex: i,
-            offsetLeft: i * totalItemWidth
-        });
-    }
-
-    // Scroll Buttons implementation
-    const manualScroll = (direction) => {
-        if (containerRef.current) {
-            const scrollAmount = containerWidth * 0.8;
-            containerRef.current.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: 'smooth'
-            });
-        }
-    };
+    const canLoadMore = Boolean(onLoadMore && hasMore);
+    const totalCount = data.length + (canLoadMore ? 1 : 0);
+    const safeActiveIndex = clamp(activeIndex, 0, Math.max(totalCount - 1, 0));
+    const cardWidth = cardWidthFor(layout, viewportWidth);
+    const step = cardWidth + GAP;
+    const safePadding = viewportWidth * (viewportWidth <= 1280 ? 0.026 : 0.034);
+    const totalWidth = Math.max(0, totalCount * step - GAP + safePadding * 2);
+    const maxOffset = Math.max(0, totalWidth - viewportWidth);
+    const railOffset = clamp(safeActiveIndex * step, 0, maxOffset);
+    const windowStart = Math.max(0, safeActiveIndex - WINDOW_BEHIND);
+    const windowEnd = Math.min(totalCount, safeActiveIndex + WINDOW_AHEAD + 1);
+    const visibleItems = data.slice(windowStart, Math.min(data.length, windowEnd));
+    const leadingSpace = windowStart > 0 ? Math.max(0, windowStart * step - GAP) : 0;
+    const trailingCount = Math.max(0, totalCount - windowEnd);
+    const trailingSpace = trailingCount > 0 ? Math.max(0, trailingCount * step - GAP) : 0;
+    const activeItem = data[Math.min(safeActiveIndex, Math.max(data.length - 1, 0))];
 
     return (
-        <div className="row-wrapper" style={{ position: 'relative' }}>
-            <h3 className="row-header">{title}</h3>
-
-            {showLeftArrowRef.current && (
-                <button
-                    className="scroll-btn left"
-                    onClick={() => manualScroll('left')}
-                    tabIndex="-1"
-                    aria-label="Sola kaydır"
-                    style={{ zIndex: 20 }}
-                >
-                    <i className="fas fa-chevron-left"></i>
-                </button>
-            )}
-
-            <div
-                className="row-scroll-container"
-                ref={containerRef}
-                onScroll={handleScroll}
-                style={{
-                    position: 'relative',
-                    overflowX: 'auto',
-                    height: layout === 'landscape' ? (itemWidth * 9 / 16 + 40) : (itemWidth * 3 / 2 + 40),
-                    display: 'block',
-                    willChange: 'scroll-position' // Hint to browser
-                }}
-            >
-                {/* Phantom container to force scroll width */}
-                <div style={{ width: totalContentWidth + (hasMore ? 300 : 0), height: '1px' }}></div>
-
-                {visibleItems.map((m) => (
-                    <div
-                        key={`${m.id}-${m.virtualIndex}`}
-                        style={{
-                            position: 'absolute',
-                            left: m.offsetLeft,
-                            top: 8,
-                            width: itemWidth,
-                            height: layout === 'landscape' ? (itemWidth * 9 / 16) : (itemWidth * 3 / 2),
-                            contain: 'layout paint' // Performance optimization for browser
-                        }}
-                    >
-                        <Card
-                            movie={m}
-                            onSelect={onSelect}
-                            layout={layout}
-                            progress={m.progress || 0}
-                        />
-                    </div>
-                ))}
-
-                {/* Load More Button (Virtual) */}
-                {onLoadMore && hasMore && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            left: data.length * totalItemWidth,
-                            top: 8,
-                            width: itemWidth,
-                            height: layout === 'landscape' ? (itemWidth * 9 / 16) : (itemWidth * 3 / 2)
-                        }}
-                    >
-                        <button
-                            tabIndex="0"
-                            onClick={onLoadMore}
-                            disabled={isLoadingMore}
-                            className={`poster-card focusable load-more-card ${layout === 'landscape' ? 'card-landscape' : 'card-portrait'}`}
-                            style={{ width: '100%', height: '100%' }}
-                        >
-                            {isLoadingMore ? (
-                                <i
-                                    className="fas fa-circle-notch fa-spin"
-                                    style={{ fontSize: '2rem', color: 'rgba(255,255,255,0.6)' }}
-                                />
-                            ) : (
-                                <>
-                                    <div className="load-more-icon">
-                                        <i className="fas fa-plus" style={{ fontSize: '1.3rem' }}></i>
-                                    </div>
-                                    <span style={{ fontWeight: '600', fontSize: '1rem' }}>Daha Fazla</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
+        <section
+            className={`tv-rail ${isFocused ? 'tv-rail-focused' : ''}`}
+            aria-label={title}
+            onMouseLeave={() => setIsFocused(false)}
+            onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setIsFocused(false);
+            }}
+        >
+            <div className="tv-rail-heading">
+                <div><h2>{title}</h2></div>
             </div>
-
-            {showRightArrowRef.current && (
-                <button
-                    className="scroll-btn right"
-                    onClick={() => manualScroll('right')}
-                    tabIndex="-1"
-                    aria-label="Sağa kaydır"
-                    style={{ zIndex: 20 }}
+            <div className="tv-rail-viewport">
+                <div
+                    className={`tv-rail-strip tv-rail-strip-${layout}`}
+                    style={{ transform: `translate3d(${-railOffset}px, 0, 0)` }}
                 >
-                    <i className="fas fa-chevron-right"></i>
-                </button>
+                    {leadingSpace > 0 && <span className="tv-rail-spacer" style={{ width: `${leadingSpace}px` }} />}
+                    {visibleItems.map((item, windowIndex) => {
+                        const itemIndex = windowStart + windowIndex;
+                        return (
+                            <Card
+                                key={`${item.id}-${itemIndex}`}
+                                movie={item}
+                                onSelect={onSelect}
+                                layout={layout}
+                                progress={item.progress || 0}
+                                rowKey={title}
+                                index={itemIndex}
+                                onFocusItem={handleCardFocus}
+                                isSpotlight={isFocused && safeActiveIndex === itemIndex}
+                            />
+                        );
+                    })}
+                    {canLoadMore && windowEnd > data.length && (
+                        <button
+                            type="button"
+                            className={`focusable tv-card tv-card-${layout} tv-load-more-card`}
+                            onClick={onLoadMore}
+                            onMouseEnter={() => {
+                                setActiveIndex(data.length);
+                                setIsFocused(true);
+                            }}
+                            disabled={isLoadingMore}
+                        >
+                            <span className="tv-load-more-icon"><i className={`fas ${isLoadingMore ? 'fa-circle-notch fa-spin' : 'fa-plus'}`} /></span>
+                            <span className="tv-load-more-copy">
+                                <strong>{isLoadingMore ? 'Yükleniyor' : 'Daha fazla'}</strong>
+                                <small>Keşfetmeye devam et</small>
+                            </span>
+                        </button>
+                    )}
+                    {trailingSpace > 0 && <span className="tv-rail-spacer" style={{ width: `${trailingSpace}px` }} />}
+                </div>
+            </div>
+            {activeItem && (
+                <div className="tv-rail-active-panel">
+                    <div className="tv-rail-active-meta">
+                        {(activeItem.release_date || activeItem.first_air_date) && <span>{(activeItem.release_date || activeItem.first_air_date).slice(0, 4)}</span>}
+                        <span>{activeItem.media_type === 'tv' || activeItem.first_air_date ? 'Dizi' : 'Film'}</span>
+                        {Number(activeItem.vote_average) > 0 && <span>★ {Number(activeItem.vote_average).toFixed(1)}</span>}
+                        <span>HD</span>
+                    </div>
+                    <h3>{activeItem.title || activeItem.name}</h3>
+                    <p>{activeItem.overview || 'Bu içerik için açıklama bilgisi bulunmuyor.'}</p>
+                </div>
             )}
-        </div>
+        </section>
     );
 });
+
+export default VirtualRow;

@@ -16,7 +16,7 @@ const UserSchema = new mongoose.Schema({
         sparse: true, 
         lowercase: true, 
         trim: true,
-        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
+        match: [/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/, 'Please fill a valid email address']
     },
     role: { 
         type: String, 
@@ -24,8 +24,9 @@ const UserSchema = new mongoose.Schema({
         default: 'user' 
     },
     // Authentication
-    hash: { type: String, required: true }, // PBKDF2 hash
-    salt: { type: String, required: true }, // PBKDF2 salt
+    hash: { type: String, required: true, select: false },
+    salt: { type: String, select: false },
+    password: { type: String, select: false },
     
     // 2FA / Security
     isTwoFactorEnabled: { type: Boolean, default: false },
@@ -53,21 +54,40 @@ const UserSchema = new mongoose.Schema({
     preferences: {
         theme: { type: String, enum: ['light', 'dark'], default: 'dark' },
         notifications: { type: Boolean, default: true }
+    },
+    // Social Profile
+    avatarId: { type: String, default: '' },
+    bio: { type: String, maxlength: 120, default: '' },
+    profileVisibility: {
+        type: String,
+        enum: ['public', 'friends', 'private'],
+        default: 'public'
+    },
+    onlineStatus: {
+        isOnline: { type: Boolean, default: false },
+        lastSeen: { type: Date },
+        currentlyWatching: {
+            title: { type: String, default: '' },
+            imdbId: { type: String, default: '' },
+            poster: { type: String, default: '' },
+            season: Number,
+            episode: Number,
+            updatedAt: Date
+        }
     }
 }, {
     timestamps: true
 });
-
-// Index for faster lookups
-UserSchema.index({ username: 1, email: 1 });
 
 // Don't return sensitive data by default
 UserSchema.methods.toJSON = function() {
     const user = this.toObject();
     delete user.hash;
     delete user.salt;
+    delete user.password;
     delete user.twoFactorSecret;
     delete user.twoFactorBackupCodes;
+    delete user.onlineStatus;
     return user;
 };
 

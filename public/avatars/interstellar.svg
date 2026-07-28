@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="in_bg2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+    <linearGradient id="in_visor2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#in_bg2)"/>
+
+  <!-- Beyaz NASA Uzay Kıyafeti (Temiz ve Net) -->
+  <path d="M30 200 C30 135 170 135 170 200 Z" fill="#f8fafc"/>
+  <rect x="70" y="140" width="60" height="20" rx="5" fill="#e2e8f0"/>
+  <circle cx="85" cy="150" r="4" fill="#ef4444"/>
+  <circle cx="115" cy="150" r="4" fill="#3b82f6"/>
+
+  <!-- Astronot Kaskı (Büyük ve Yuvarlak) -->
+  <circle cx="100" cy="85" r="50" fill="#ffffff"/>
+  
+  <!-- Altın Yansımalı Visör (Temiz Kara Delik Yansıması) -->
+  <ellipse cx="100" cy="82" rx="40" ry="28" fill="url(#in_visor2)"/>
+  
+  <!-- Visör Parlaması -->
+  <path d="M70 70 Q100 60 130 75" stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M65 85 Q80 75 95 85" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.4"/>
+</svg>

@@ -18,6 +18,8 @@ import { Server } from 'socket.io';
 import { findSource } from './src/services/scraperManager.js';
 import { resolveDizimom } from './src/utils/dizimom-resolver.js';
 import { adminMiddleware } from './src/middleware/adminMiddleware.js';
+import { Friendship } from './src/models/Friendship.js';
+import { sessionTokenQuery, sessionTokenRecord } from './src/utils/sessionToken.js';
 import { AccessToken } from 'livekit-server-sdk';
 import OpenSubtitles from 'opensubtitles-api';
 import puppeteer from 'puppeteer-extra';
@@ -27,6 +29,8 @@ import { SocksProxyAgent } from 'socks-proxy-agent';
 const USE_TOR = process.env.USE_TOR === 'true';
 const TOR_SOCKS_PROXY = process.env.TOR_SOCKS_PROXY || 'socks5://127.0.0.1:9050';
 const torAgent = USE_TOR ? new SocksProxyAgent(TOR_SOCKS_PROXY) : undefined;
+// Social: Online users tracking (userId -> Set of socketIds)
+const onlineUsers = new Map();
 
 puppeteer.use(StealthPlugin());
 
@@ -56,7 +60,7 @@ const isKeepAliveEnabledByDefault = () => {
 const CONFIG = {
     PORT: process.env.PORT || 3000,
     REAL_DEBRID_TOKEN: process.env.REAL_DEBRID_TOKEN || '',
-    TMDB_API_KEY: process.env.TMDB_API_KEY || 'db8ab9e44da4236102fadf5d58a08a4b', 
+    TMDB_API_KEY: process.env.TMDB_API_KEY || '',
     MONGODB_URI: process.env.MONGODB_URI,
     FFMPEG_PATH: process.env.FFMPEG_PATH || '/usr/bin/ffmpeg',
     FFPROBE_PATH: process.env.FFPROBE_PATH || '/usr/bin/ffprobe',
@@ -73,6 +77,28 @@ const CONFIG = {
     ]
 };
 
+const configuredCorsOrigins = new Set(
+    String(process.env.CORS_ORIGINS || '')
+        .split(',')
+        .map(origin => origin.trim().replace(/\/$/, ''))
+        .filter(Boolean)
+);
+
+const isAllowedCorsOrigin = (origin) => {
+    if (!origin || origin === 'null') return true;
+    const normalized = String(origin).replace(/\/$/, '');
+    if (configuredCorsOrigins.has(normalized)) return true;
+    return /^https:\/\/([a-z0-9-]+\.)?noxis\.tech$/i.test(normalized) ||
+        /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(normalized) ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalized) ||
+        /^(file|app|webos|capacitor|ionic):\/\//i.test(normalized);
+};
+
+const corsOrigin = (origin, callback) => {
+    if (isAllowedCorsOrigin(origin)) callback(null, true);
+    else callback(null, false);
+};
+
 try {
     ffmpeg.setFfmpegPath(CONFIG.FFMPEG_PATH);
     ffmpeg.setFfprobePath(CONFIG.FFPROBE_PATH);
@@ -87,7 +113,7 @@ const httpServer = createServer(app);
 // Initialize Socket.IO with CORS
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // Allow all origins for development/flexibility
+        origin: corsOrigin,
         methods: ["GET", "POST"]
     }
 });
@@ -177,7 +203,45 @@ io.on('connection', (socket) => {
         handleDisconnect(socket, code);
     });
 
-    socket.on('disconnect', () => {
+    // ─── Social Presence ───
+    socket.on('social_login', async (data) => {
+        if (!data?.userId) return;
+        socket.userId = data.userId;
+        socket.socialUsername = data.username;
+
+        if (!onlineUsers.has(data.userId)) {
+            onlineUsers.set(data.userId, new Set());
+        }
+        onlineUsers.get(data.userId).add(socket.id);
+
+        // Update DB online status
+        try {
+            await User.findByIdAndUpdate(data.userId, {
+                'onlineStatus.isOnline': true,
+                'onlineStatus.lastSeen': new Date()
+            });
+        } catch (e) { /* silent */ }
+
+        // Notify friends
+        try {
+            const friendships = await Friendship.find({
+                $or: [{ requester: data.userId }, { recipient: data.userId }],
+                status: 'accepted'
+            });
+            friendships.forEach(f => {
+                const friendId = String(f.requester) === data.userId
+                    ? String(f.recipient) : String(f.requester);
+                const friendSockets = onlineUsers.get(friendId);
+                if (friendSockets) {
+                    friendSockets.forEach(sid => {
+                        io.to(sid).emit('friend_online', { username: data.username });
+                    });
+                }
+            });
+        } catch (e) { /* silent */ }
+    });
+
+    socket.on('disconnect', async () => {
         console.log(`🔌 Socket disconnected: ${socket.id}`);
         // Find which rooms this socket was in
         rooms.forEach((room, code) => {
@@ -185,6 +249,43 @@ io.on('connection', (socket) => {
                 handleDisconnect(socket, code);
             }
         });
+
+        if (socket.userId) {
+            const userSockets = onlineUsers.get(socket.userId);
+            if (userSockets) {
+                userSockets.delete(socket.id);
+                if (userSockets.size === 0) {
+                    onlineUsers.delete(socket.userId);
+
+                    // Update DB
+                    try {
+                        await User.findByIdAndUpdate(socket.userId, {
+                            'onlineStatus.isOnline': false,
+                            'onlineStatus.lastSeen': new Date(),
+                            'onlineStatus.currentlyWatching': {}
+                        });
+                    } catch (e) { /* silent */ }
+
+                    // Notify friends
+                    try {
+                        const friendships = await Friendship.find({
+                            $or: [{ requester: socket.userId }, { recipient: socket.userId }],
+                            status: 'accepted'
+                        });
+                        friendships.forEach(f => {
+                            const friendId = String(f.requester) === socket.userId
+                                ? String(f.recipient) : String(f.requester);
+                            const friendSockets = onlineUsers.get(friendId);
+                            if (friendSockets) {
+                                friendSockets.forEach(sid => {
+                                    io.to(sid).emit('friend_offline', { username: socket.socialUsername });
+                                });
+                            }
+                        });
+                    } catch (e) { /* silent */ }
+                }
+            }
+        }
     });
 });
 
@@ -220,7 +321,7 @@ function handleDisconnect(socket, code) {
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: corsOrigin }));
 app.use(compression());
 app.use(express.json());
 
@@ -245,6 +346,16 @@ const limiter = rateLimit({
     legacyHeaders: false,
 });
 app.use(limiter);
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    skip: (req) => !['login', 'register'].includes(req.params.action),
+    message: { error: 'Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.' }
+});
 
 const normalizeKeepAliveUrl = (rawUrl) => {
     if (!rawUrl) return null;
@@ -319,15 +430,21 @@ if (CONFIG.MONGODB_URI) {
 import { User } from './src/models/User.js';
 import { Session } from './src/models/Session.js';
 
-const setPassword = (password) => {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    return { salt, hash };
-};
+const BCRYPT_ROUNDS = Math.min(Math.max(Number(process.env.BCRYPT_ROUNDS) || 12, 10), 14);
+const DUMMY_PASSWORD_HASH = '$2b$12$51C/k9oNM3S45usa3KJAZOmqnbm0H38HrrGAyGQaj9dc9y8HyhDAy';
+const hashPassword = (password) => bcrypt.hash(password, BCRYPT_ROUNDS);
 
-const validatePassword = (password, userSalt, userHash) => {
-    const hash = crypto.pbkdf2Sync(password, userSalt, 1000, 64, 'sha512').toString('hex');
-    return hash === userHash;
+const validateLegacyPassword = (password, userSalt, userHash) => {
+    try {
+        const calculated = Buffer.from(
+            crypto.pbkdf2Sync(password, userSalt, 1000, 64, 'sha512').toString('hex'),
+            'hex'
+        );
+        const expected = Buffer.from(String(userHash || ''), 'hex');
+        return calculated.length === expected.length && crypto.timingSafeEqual(calculated, expected);
+    } catch {
+        return false;
+    }
 };
 
 const generateToken = () => crypto.randomBytes(32).toString('hex');
@@ -372,13 +489,13 @@ const findLocalDevUser = (identifier = '') => {
     return null;
 };
 
-const createLocalDevUser = ({ username, password }) => {
+const createLocalDevUser = async ({ username, email, password }) => {
     const normalizedUsername = normalizeLocalCredential(username);
     const user = {
         id: `local_${generateToken().slice(0, 12)}`,
         username: normalizedUsername,
-        email: normalizedUsername.includes('@') ? normalizedUsername : `${normalizedUsername}@local.dev`,
-        password
+        email: normalizeLocalCredential(email) || (normalizedUsername.includes('@') ? normalizedUsername : `${normalizedUsername}@local.dev`),
+        passwordHash: await hashPassword(password)
     };
 
     localDevUsers.set(user.id, user);
@@ -422,16 +539,22 @@ const authenticateToken = async (req, res, next) => {
         return res.status(503).json({ success: false, error: 'Database not connected' });
     }
 
-    const session = await Session.findOne({ token });
+    const session = await Session.findOne(sessionTokenQuery(token));
     if (!session) return res.sendStatus(403);
 
-    req.user = { id: session.userId, username: session.username };
+    const user = await User.findById(session.userId).select('username isActive isBanned');
+    if (!user || user.isBanned || user.isActive === false) {
+        await Session.deleteOne({ _id: session._id });
+        return res.sendStatus(403);
+    }
+
+    req.user = { id: user._id, username: user.username || session.username };
     next();
 };
 
 const handleLocalDevAuth = async (req, res, action) => {
     if (action === 'register') {
-        const { username, password } = req.body;
+        const { username, email, password } = req.body;
 
         if (!username || !password) return res.status(400).json({ error: 'Tum alanlari doldurun' });
         if (username.length < 3) return res.status(400).json({ error: 'Kullanici adi en az 3 karakter olmali' });
@@ -440,7 +563,7 @@ const handleLocalDevAuth = async (req, res, action) => {
         const existingLocalUser = findLocalDevUser(username);
         if (existingLocalUser) return res.status(400).json({ error: 'Bu kullanici adi zaten alinmis' });
 
-        const localUser = createLocalDevUser({ username, password });
+        const localUser = await createLocalDevUser({ username, email, password });
         const localSession = createLocalDevSession(localUser);
 
         return res.json({
@@ -455,10 +578,9 @@ const handleLocalDevAuth = async (req, res, action) => {
         const { username, password } = req.body;
         if (!username) return res.status(400).json({ error: 'Eksik bilgi' });
 
-        let localUser = findLocalDevUser(username);
-
-        if (!localUser) {
-            localUser = createLocalDevUser({ username, password: password || 'dev' });
+        const localUser = findLocalDevUser(username);
+        if (!localUser || !await bcrypt.compare(password || '', localUser.passwordHash)) {
+            return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
         }
 
         const localSession = createLocalDevSession(localUser);
@@ -495,7 +617,7 @@ const handleLocalDevAuth = async (req, res, action) => {
     return res.status(404).json({ error: 'Unknown auth action' });
 };
 
-app.post('/api/auth/:action', async (req, res) => {
+app.post('/api/auth/:action', authLimiter, async (req, res) => {
     const { action } = req.params;
     if (shouldUseLocalAuthBypass(req)) {
         return handleLocalDevAuth(req, res, action);
@@ -504,25 +626,38 @@ app.post('/api/auth/:action', async (req, res) => {
 
     try {
         if (action === 'register') {
-            const { username, password } = req.body;
+            const { username, email, password } = req.body;
+            const normalizedUsername = String(username || '').trim().toLowerCase();
+            const normalizedEmail = String(email || '').trim().toLowerCase();
             
-            if (!username || !password) return res.status(400).json({ error: 'Tüm alanları doldurun' });
-            if (username.length < 3) return res.status(400).json({ error: 'Kullanıcı adı en az 3 karakter olmalı' });
+            if (!normalizedUsername || !normalizedEmail || !password) return res.status(400).json({ error: 'Tüm alanları doldurun' });
+            if (normalizedUsername.length < 3) return res.status(400).json({ error: 'Kullanıcı adı en az 3 karakter olmalı' });
             if (password.length < 6) return res.status(400).json({ error: 'Şifre en az 6 karakter olmalı' });
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(normalizedEmail)) {
+                return res.status(400).json({ error: 'Geçerli bir e-posta adresi girin' });
+            }
             
-            const existing = await User.findOne({ username: username.toLowerCase() });
-            if (existing) return res.status(400).json({ error: 'Bu kullanıcı adı zaten alınmış' });
+            const existing = await User.findOne({
+                $or: [{ username: normalizedUsername }, { email: normalizedEmail }]
+            });
+            if (existing) return res.status(409).json({ error: 'Bu kullanıcı adı veya e-posta zaten kullanılıyor' });
 
-            const { salt, hash } = setPassword(password);
+            const hash = await hashPassword(password);
             
             const user = await User.create({ 
-                username: username.toLowerCase(), 
-                hash, 
-                salt 
+                username: normalizedUsername,
+                email: normalizedEmail,
+                hash
             });
             
             const token = generateToken();
-            await Session.create({ token, userId: user._id, username: user.username });
+            await Session.create({
+                ...sessionTokenRecord(token),
+                userId: user._id,
+                username: user.username,
+                ip: req.ip,
+                userAgent: String(req.get('user-agent') || '').slice(0, 300)
+            });
 
             return res.json({ success: true, token, user: { id: user._id, username: user.username } });
         }
@@ -534,35 +669,63 @@ app.post('/api/auth/:action', async (req, res) => {
             if (!identifier) return res.status(400).json({ error: 'Eksik bilgi' });
 
             // Hem username hem email ile arama yap
-            let user = await User.findOne({ 
+            const user = await User.findOne({
                 $or: [
                     { username: identifier },
                     { email: identifier }
                 ]
-            });
+            }).select('+hash +salt +password');
 
-            if (!user) return res.status(401).json({ error: 'Kullanıcı bulunamadı' });
+            if (!user) {
+                await bcrypt.compare(password || '', DUMMY_PASSWORD_HASH);
+                return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
+            }
             if (user.isBanned || user.isActive === false) {
                 return res.status(403).json({ error: 'Bu hesap devre dışı' });
             }
 
             let isValid = false;
 
-            // PBKDF2 format (yeni) - salt varsa
-            if (user.salt && user.hash) {
-                isValid = validatePassword(password || '', user.salt, user.hash);
+            if (typeof user.hash === 'string' && user.hash.startsWith('$2')) {
+                isValid = await bcrypt.compare(password || '', user.hash);
             }
-            // Bcrypt format (eski) - password $2b$ ile başlıyorsa
-            else if (typeof user.password === 'string' && user.password.startsWith('$2b$')) {
+            else if (user.salt && user.hash) {
+                isValid = validateLegacyPassword(password || '', user.salt, user.hash);
+                if (isValid) {
+                    user.hash = await hashPassword(password);
+                    user.salt = undefined;
+                }
+            }
+            else if (typeof user.password === 'string' && user.password.startsWith('$2')) {
                 isValid = await bcrypt.compare(password || '', user.password);
+                if (isValid) {
+                    user.hash = await hashPassword(password);
+                    user.password = undefined;
+                    user.salt = undefined;
+                }
             }
 
             if (!isValid) {
-                return res.status(401).json({ error: 'Hatalı şifre' });
+                return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
             }
 
+            user.lastLogin = new Date();
+            user.loginHistory.push({
+                ip: req.ip,
+                userAgent: String(req.get('user-agent') || '').slice(0, 300),
+                status: 'success'
+            });
+            if (user.loginHistory.length > 25) user.loginHistory = user.loginHistory.slice(-25);
+            await user.save();
+
             const token = generateToken();
-            await Session.create({ token, userId: user._id, username: user.username || user.name });
+            await Session.create({
+                ...sessionTokenRecord(token),
+                userId: user._id,
+                username: user.username || user.name,
+                ip: req.ip,
+                userAgent: String(req.get('user-agent') || '').slice(0, 300)
+            });
             
             return res.json({ success: true, token, user: { id: user._id, username: user.username || user.name } });
         }
@@ -571,21 +734,35 @@ app.post('/api/auth/:action', async (req, res) => {
             const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
             if (!token || typeof token !== 'string') return res.status(401).json({ error: 'No token' });
             
-            const session = await Session.findOne({ token: String(token) });
+            const session = await Session.findOne(sessionTokenQuery(token));
             if (!session) return res.status(401).json({ error: 'Session expired' });
+
+            const user = await User.findById(session.userId).select('username isActive isBanned');
+            if (!user || user.isBanned || user.isActive === false) {
+                await Session.deleteOne({ _id: session._id });
+                return res.status(403).json({ error: 'Bu hesap devre dışı' });
+            }
             
-            return res.json({ success: true, user: { username: session.username } });
+            return res.json({
+                success: true,
+                user: { id: user._id, username: user.username || session.username }
+            });
         }
 
         if (action === 'logout') {
             const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
             if (token && typeof token === 'string') {
-                await Session.deleteOne({ token: String(token) });
+                await Session.deleteMany(sessionTokenQuery(token));
             }
             return res.json({ success: true });
         }
+
+        return res.status(404).json({ error: 'Bilinmeyen kimlik doğrulama işlemi' });
     } catch (e) {
         console.error("Auth Error:", e);
+        if (e?.code === 11000) {
+            return res.status(409).json({ error: 'Bu kullanıcı adı veya e-posta zaten kullanılıyor' });
+        }
         res.status(500).json({ error: "Sunucu hatası" });
     }
 });
@@ -1536,7 +1713,7 @@ const debrid = new DebridService();
 
 const tmdbCache = new Map();
 app.get('/api/tmdb', async (req, res) => {
-    if (!CONFIG.TMDB_API_KEY) return res.status(500).json({ success: false, error: 'TMDB API key not configured' });
+    if (!CONFIG.TMDB_API_KEY) return res.status(503).json({ success: false, error: 'TMDB API key not configured' });
     const endpoint = req.query.endpoint;
     if (!endpoint) return res.status(400).json({ success: false, error: 'Endpoint required' });
 
@@ -3050,6 +3227,465 @@ app.get('/api/admin/users', adminMiddleware, async (req, res) => {
     } catch (error) {
         console.error('Admin Users Error:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch users' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SOCIAL SYSTEM API ENDPOINTS
+// ═══════════════════════════════════════════════════════════════
+
+// --- Profile Endpoints ---
+
+// GET /api/profile/me - Get own profile with social data
+app.get('/api/profile/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select('username email avatarId bio profileVisibility watchHistory preferences createdAt');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const friendCount = await Friendship.countDocuments({
+            $or: [{ requester: user._id }, { recipient: user._id }],
+            status: 'accepted'
+        });
+
+        const pendingCount = await Friendship.countDocuments({
+            recipient: user._id,
+            status: 'pending'
+        });
+
+        res.json({
+            success: true,
+            profile: {
+                ...user.toObject(),
+                friendCount,
+                pendingRequestCount: pendingCount
+            }
+        });
+    } catch (err) {
+        console.error('Profile/me error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/profile/update - Update own profile settings
+app.post('/api/profile/update', authenticateToken, async (req, res) => {
+    try {
+        const { avatarId, bio, profileVisibility } = req.body;
+        const updates = {};
+
+        if (avatarId !== undefined) updates.avatarId = String(avatarId).slice(0, 100);
+        if (bio !== undefined) updates.bio = String(bio).slice(0, 120);
+        if (profileVisibility && ['public', 'friends', 'private'].includes(profileVisibility)) {
+            updates.profileVisibility = profileVisibility;
+        }
+
+        const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true })
+            .select('username avatarId bio profileVisibility');
+
+        res.json({ success: true, profile: user });
+    } catch (err) {
+        console.error('Profile update error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/profile/:username - View someone's public profile
+app.get('/api/profile/:username', authenticateToken, async (req, res) => {
+    try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() })
+            .select('username avatarId bio profileVisibility watchHistory createdAt onlineStatus');
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        const isOwnProfile = String(targetUser._id) === String(req.user.id);
+
+        // Check friendship status
+        let friendshipStatus = 'none';
+        if (!isOwnProfile) {
+            const friendship = await Friendship.findOne({
+                $or: [
+                    { requester: req.user.id, recipient: targetUser._id },
+                    { requester: targetUser._id, recipient: req.user.id }
+                ]
+            });
+            if (friendship) {
+                friendshipStatus = friendship.status;
+                if (friendship.status === 'pending') {
+                    friendshipStatus = String(friendship.requester) === String(req.user.id)
+                        ? 'pending_sent' : 'pending_received';
+                }
+            }
+        }
+
+        const isFriend = friendshipStatus === 'accepted';
+
+        // Apply privacy rules
+        const canViewFull = isOwnProfile ||
+            targetUser.profileVisibility === 'public' ||
+            (targetUser.profileVisibility === 'friends' && isFriend);
+
+        const friendCount = await Friendship.countDocuments({
+            $or: [{ requester: targetUser._id }, { recipient: targetUser._id }],
+            status: 'accepted'
+        });
+
+        const isOnline = onlineUsers.has(String(targetUser._id));
+
+        const profileData = {
+            username: targetUser.username,
+            avatarId: targetUser.avatarId || '',
+            bio: canViewFull ? (targetUser.bio || '') : '',
+            profileVisibility: targetUser.profileVisibility,
+            friendshipStatus,
+            friendCount,
+            isOnline,
+            lastSeen: targetUser.onlineStatus?.lastSeen || null,
+            memberSince: targetUser.createdAt
+        };
+
+        if (canViewFull) {
+            // Calculate watch stats from watchHistory
+            const history = targetUser.watchHistory || {};
+            const entries = Object.values(history);
+            profileData.stats = {
+                totalWatched: entries.length,
+                movieCount: entries.filter(e => !e.season).length,
+                episodeCount: entries.filter(e => e.season).length,
+                totalHours: Math.round(entries.reduce((sum, e) => sum + ((e.currentTime || 0) / 3600), 0))
+            };
+
+            // Currently watching
+            if (isOnline && targetUser.onlineStatus?.currentlyWatching?.title) {
+                profileData.currentlyWatching = targetUser.onlineStatus.currentlyWatching;
+            }
+        }
+
+        res.json({ success: true, profile: profileData, canViewFull });
+    } catch (err) {
+        console.error('Profile view error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// --- Friends Endpoints ---
+
+// GET /api/friends/search?q=username - Search users by username
+app.get('/api/friends/search', authenticateToken, async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim().toLowerCase();
+        if (q.length < 2) return res.json({ success: true, users: [] });
+
+        const users = await User.find({
+            username: { $regex: q, $options: 'i' },
+            _id: { $ne: req.user.id },
+            isActive: true,
+            isBanned: { $ne: true }
+        })
+        .select('username avatarId bio profileVisibility')
+        .limit(20);
+
+        // Get friendship statuses for found users
+        const userIds = users.map(u => u._id);
+        const friendships = await Friendship.find({
+            $or: [
+                { requester: req.user.id, recipient: { $in: userIds } },
+                { requester: { $in: userIds }, recipient: req.user.id }
+            ]
+        });
+
+        const friendMap = new Map();
+        friendships.forEach(f => {
+            const otherId = String(f.requester) === String(req.user.id)
+                ? String(f.recipient) : String(f.requester);
+            let status = f.status;
+            if (f.status === 'pending') {
+                status = String(f.requester) === String(req.user.id)
+                    ? 'pending_sent' : 'pending_received';
+            }
+            friendMap.set(otherId, status);
+        });
+
+        const results = users.map(u => ({
+            username: u.username,
+            avatarId: u.avatarId || '',
+            bio: u.bio || '',
+            isOnline: onlineUsers.has(String(u._id)),
+            friendshipStatus: friendMap.get(String(u._id)) || 'none'
+        }));
+
+        res.json({ success: true, users: results });
+    } catch (err) {
+        console.error('Friend search error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/request - Send friend request
+app.post('/api/friends/request', authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.body;
+        if (!username) return res.status(400).json({ error: 'Username required' });
+
+        const recipient = await User.findOne({ username: username.toLowerCase() }).select('_id username');
+        if (!recipient) return res.status(404).json({ error: 'User not found' });
+        if (String(recipient._id) === String(req.user.id)) {
+            return res.status(400).json({ error: 'Cannot send request to yourself' });
+        }
+
+        // Check if already friends or pending
+        const existing = await Friendship.findOne({
+            $or: [
+                { requester: req.user.id, recipient: recipient._id },
+                { requester: recipient._id, recipient: req.user.id }
+            ]
+        });
+
+        if (existing) {
+            if (existing.status === 'accepted') return res.status(400).json({ error: 'Already friends' });
+            if (existing.status === 'pending') return res.status(400).json({ error: 'Request already pending' });
+            if (existing.status === 'rejected') {
+                // Allow re-request after rejection
+                existing.status = 'pending';
+                existing.requester = req.user.id;
+                existing.recipient = recipient._id;
+                existing.createdAt = new Date();
+                existing.acceptedAt = undefined;
+                await existing.save();
+
+                // Notify via Socket.IO
+                const recipientSockets = onlineUsers.get(String(recipient._id));
+                if (recipientSockets) {
+                    recipientSockets.forEach(sid => {
+                        io.to(sid).emit('friend_request', {
+                            from: req.user.username,
+                            requestId: existing._id
+                        });
+                    });
+                }
+
+                return res.json({ success: true, status: 'pending' });
+            }
+        }
+
+        const friendship = new Friendship({
+            requester: req.user.id,
+            recipient: recipient._id
+        });
+        await friendship.save();
+
+        // Notify recipient via Socket.IO
+        const recipientSockets = onlineUsers.get(String(recipient._id));
+        if (recipientSockets) {
+            recipientSockets.forEach(sid => {
+                io.to(sid).emit('friend_request', {
+                    from: req.user.username,
+                    requestId: friendship._id
+                });
+            });
+        }
+
+        res.json({ success: true, status: 'pending' });
+    } catch (err) {
+        if (err.code === 11000) return res.status(400).json({ error: 'Request already exists' });
+        console.error('Friend request error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/accept - Accept friend request
+app.post('/api/friends/accept', authenticateToken, async (req, res) => {
+    try {
+        const { requestId } = req.body;
+        if (!requestId) return res.status(400).json({ error: 'Request ID required' });
+
+        const friendship = await Friendship.findOne({
+            _id: requestId,
+            recipient: req.user.id,
+            status: 'pending'
+        });
+
+        if (!friendship) return res.status(404).json({ error: 'Request not found' });
+
+        friendship.status = 'accepted';
+        friendship.acceptedAt = new Date();
+        await friendship.save();
+
+        // Notify requester
+        const requesterSockets = onlineUsers.get(String(friendship.requester));
+        if (requesterSockets) {
+            requesterSockets.forEach(sid => {
+                io.to(sid).emit('friend_accepted', {
+                    by: req.user.username
+                });
+            });
+        }
+
+        res.json({ success: true, status: 'accepted' });
+    } catch (err) {
+        console.error('Friend accept error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/reject - Reject friend request
+app.post('/api/friends/reject', authenticateToken, async (req, res) => {
+    try {
+        const { requestId } = req.body;
+        const friendship = await Friendship.findOne({
+            _id: requestId,
+            recipient: req.user.id,
+            status: 'pending'
+        });
+
+        if (!friendship) return res.status(404).json({ error: 'Request not found' });
+
+        friendship.status = 'rejected';
+        await friendship.save();
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Friend reject error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/remove - Remove friend
+app.post('/api/friends/remove', authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.body;
+        if (!username) return res.status(400).json({ error: 'Username required' });
+
+        const targetUser = await User.findOne({ username: username.toLowerCase() }).select('_id');
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        await Friendship.findOneAndDelete({
+            $or: [
+                { requester: req.user.id, recipient: targetUser._id, status: 'accepted' },
+                { requester: targetUser._id, recipient: req.user.id, status: 'accepted' }
+            ]
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Friend remove error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/friends/list - Get friends list with online status
+app.get('/api/friends/list', authenticateToken, async (req, res) => {
+    try {
+        const friendships = await Friendship.find({
+            $or: [{ requester: req.user.id }, { recipient: req.user.id }],
+            status: 'accepted'
+        }).populate('requester recipient', 'username avatarId bio profileVisibility onlineStatus');
+
+        const friends = friendships.map(f => {
+            const friend = String(f.requester._id) === String(req.user.id)
+                ? f.recipient : f.requester;
+            const isOnline = onlineUsers.has(String(friend._id));
+            return {
+                username: friend.username,
+                avatarId: friend.avatarId || '',
+                bio: friend.bio || '',
+                isOnline,
+                lastSeen: friend.onlineStatus?.lastSeen || null,
+                currentlyWatching: isOnline ? (friend.onlineStatus?.currentlyWatching || null) : null,
+                friendSince: f.acceptedAt
+            };
+        });
+
+        // Sort: online first, then by username
+        friends.sort((a, b) => {
+            if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+            return a.username.localeCompare(b.username);
+        });
+
+        res.json({ success: true, friends });
+    } catch (err) {
+        console.error('Friends list error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/friends/requests - Get pending requests
+app.get('/api/friends/requests', authenticateToken, async (req, res) => {
+    try {
+        const incoming = await Friendship.find({
+            recipient: req.user.id,
+            status: 'pending'
+        }).populate('requester', 'username avatarId bio');
+
+        const outgoing = await Friendship.find({
+            requester: req.user.id,
+            status: 'pending'
+        }).populate('recipient', 'username avatarId bio');
+
+        res.json({
+            success: true,
+            incoming: incoming.map(f => ({
+                requestId: f._id,
+                username: f.requester.username,
+                avatarId: f.requester.avatarId || '',
+                bio: f.requester.bio || '',
+                sentAt: f.createdAt
+            })),
+            outgoing: outgoing.map(f => ({
+                requestId: f._id,
+                username: f.recipient.username,
+                avatarId: f.recipient.avatarId || '',
+                bio: f.recipient.bio || '',
+                sentAt: f.createdAt
+            }))
+        });
+    } catch (err) {
+        console.error('Friend requests error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/friends/activity - Update currently watching status
+app.post('/api/friends/activity', authenticateToken, async (req, res) => {
+    try {
+        const { title, imdbId, poster, season, episode } = req.body;
+
+        await User.findByIdAndUpdate(req.user.id, {
+            'onlineStatus.currentlyWatching': {
+                title: title || '',
+                imdbId: imdbId || '',
+                poster: poster || '',
+                season: season || null,
+                episode: episode || null,
+                updatedAt: new Date()
+            }
+        });
+
+        // Broadcast to friends via Socket.IO
+        const friendships = await Friendship.find({
+            $or: [{ requester: req.user.id }, { recipient: req.user.id }],
+            status: 'accepted'
+        });
+
+        const friendIds = friendships.map(f =>
+            String(f.requester) === String(req.user.id)
+                ? String(f.recipient) : String(f.requester)
+        );
+
+        friendIds.forEach(fid => {
+            const sockets = onlineUsers.get(fid);
+            if (sockets) {
+                sockets.forEach(sid => {
+                    io.to(sid).emit('friend_watching', {
+                        username: req.user.username,
+                        title, imdbId, poster, season, episode
+                    });
+                });
+            }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Activity update error:', err);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 

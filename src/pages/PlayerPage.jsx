@@ -12,26 +12,24 @@ const PlayerPage = () => {
 
     const isLocal = searchParams.get('local') === 'true';
     const localUrl = searchParams.get('url');
-    const season = parseInt(searchParams.get('s')) || 1;
-    const episode = parseInt(searchParams.get('e')) || 1;
+    const season = parseInt(searchParams.get('s'), 10) || 1;
+    const episode = parseInt(searchParams.get('e'), 10) || 1;
 
     useEffect(() => {
         const loadMovieData = async () => {
             if (isLocal && localUrl) {
-                // Construct a mock offline movie object using search parameters to bypass API failures when offline
                 setMovie({
-                    id: id,
-                    title: decodeURIComponent(searchParams.get('title') || 'Çevrimdışı Video'),
+                    id,
+                    title: searchParams.get('title') || 'Çevrimdışı Video',
                     media_type: type,
-                    backdrop_path: searchParams.get('backdrop') ? decodeURIComponent(searchParams.get('backdrop') || '') : null,
-                    poster_path: searchParams.get('poster') ? decodeURIComponent(searchParams.get('poster') || '') : null,
-                    localUrl: decodeURIComponent(localUrl),
+                    backdrop_path: searchParams.get('backdrop') || null,
+                    poster_path: searchParams.get('poster') || null,
+                    localUrl,
                     isLocal: true
                 });
                 return;
             }
-            
-            // We need basic movie info for the player (title, backdrop etc)
+
             const data = await fetchTMDB(`/${type}/${id}`);
             if (data) {
                 setMovie({ ...data, media_type: type });
@@ -46,8 +44,9 @@ const PlayerPage = () => {
                 replace: true,
                 state: location.state?.detailFrom ? { from: location.state.detailFrom } : null
             });
+        } else {
+            navigate(-1);
         }
-        else navigate(-1);
     };
 
     if (!movie) {

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="ty_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="100" fill="url(#ty_bg)"/>
+
+  <!-- Spiky Hair -->
+  <path d="M55 55 L70 30 L85 50 L100 25 L115 50 L130 30 L145 55 Z" fill="#d97706"/>
+
+  <!-- Face -->
+  <path d="M68 60 C68 45 132 45 132 60 L128 114 C128 135 72 135 72 114 Z" fill="#fed7aa"/>
+
+  <!-- Red Aviator Sunglasses -->
+  <rect x="74" y="74" width="22" height="15" rx="4" fill="#dc2626" opacity="0.85"/>
+  <rect x="104" y="74" width="22" height="15" rx="4" fill="#dc2626" opacity="0.85"/>
+  <line x1="96" y1="80" x2="104" y2="80" stroke="#d97706" stroke-width="2.5"/>
+
+  <!-- Red Leather Jacket -->
+  <path d="M35 200 C35 145 165 145 165 200 Z" fill="#991b1b"/>
+  <polygon points="80,145 100,175 120,145" fill="#fef08a"/>
+</svg>

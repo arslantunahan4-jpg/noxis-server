@@ -10,11 +10,13 @@ import {
 import '@livekit/components-styles';
 import { useVoiceChat } from '../../hooks/useVoiceChat';
 import { VOICE_CONFIG, I18N } from '../../config/party';
+import { getStoredAvatar } from '../../config/avatars';
 
 // --- Sub Components ---
 
 const UserItem = ({ participant }) => {
     const { isSpeaking, isMicrophoneEnabled, identity } = participant;
+    const avatar = getStoredAvatar();
     
     return (
         <div style={{
@@ -25,21 +27,23 @@ const UserItem = ({ participant }) => {
             transition: 'all 0.2s'
         }}>
             <div style={{
-                position: 'relative', width: '36px', height: '36px', marginRight: '12px'
+                position: 'relative', width: '36px', height: '36px', marginRight: '12px',
+                borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                background: avatar.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: isSpeaking ? '2px solid #4CAF50' : '2px solid rgba(255,255,255,0.2)'
             }}>
-                <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${identity}`} 
-                    alt={identity}
-                    style={{ 
-                        width: '100%', height: '100%', borderRadius: '50%',
-                        border: isSpeaking ? '2px solid #4CAF50' : '2px solid #555'
-                    }}
-                />
+                {avatar.url ? (
+                    <img src={avatar.url} alt={identity} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : avatar.icon ? (
+                    <i className={avatar.icon} style={{ fontSize: '16px', color: '#fff' }} />
+                ) : (
+                    <span style={{ fontSize: '14px', fontWeight: '800', color: '#fff' }}>{(identity || 'U').charAt(0).toUpperCase()}</span>
+                )}
                 {!isMicrophoneEnabled && (
                     <div style={{
                         position: 'absolute', bottom: -2, right: -2,
                         background: '#f44336', borderRadius: '50%', padding: '3px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2
                     }}>
                         <i className="fas fa-microphone-slash" style={{ fontSize: '8px', color: 'white' }}></i>
                     </div>
@@ -48,7 +52,7 @@ const UserItem = ({ participant }) => {
             
             <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ 
-                    fontSize: '14px', fontWeight: '500', color: isSpeaking ? '#4CAF50' : '#ddd',
+                    fontSize: '14px', fontWeight: '600', color: isSpeaking ? '#4CAF50' : '#ddd',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                 }}>
                     {identity}
@@ -83,6 +87,7 @@ const ParticipantList = () => {
 
 const UserControls = ({ onLeave, toggleAudioMode, audioMode, isMobile }) => {
     const { localParticipant } = useLocalParticipant();
+    const avatar = getStoredAvatar();
     
     // Derived state from LiveKit participant
     const isMicEnabled = localParticipant?.isMicrophoneEnabled;
@@ -150,11 +155,19 @@ const UserControls = ({ onLeave, toggleAudioMode, audioMode, isMobile }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img 
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${localParticipant?.identity || 'Me'}`} 
-                        alt="Me"
-                        style={{ width: '32px', height: '32px', borderRadius: '50%' }}
-                    />
+                    <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                        background: avatar.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '1.5px solid rgba(255,255,255,0.3)'
+                    }}>
+                        {avatar.url ? (
+                            <img src={avatar.url} alt="Me" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : avatar.icon ? (
+                            <i className={avatar.icon} style={{ fontSize: '14px', color: '#fff' }} />
+                        ) : (
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#fff' }}>{(localParticipant?.identity || 'B').charAt(0).toUpperCase()}</span>
+                        )}
+                    </div>
                     <div style={{ fontSize: '13px', fontWeight: '600', color: 'white' }}>
                         {localParticipant?.identity || 'Ben'}
                     </div>
@@ -221,8 +234,7 @@ export const VoiceSidebar = ({ roomCode, username, onLeave }) => {
         requestPermission, 
         toggleAudioMode,
         audioMode,
-        isMobile,
-        roomName
+        isMobile
     } = useVoiceChat(roomCode, username);
 
     // FIX: Check error first!

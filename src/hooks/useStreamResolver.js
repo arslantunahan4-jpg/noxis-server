@@ -106,7 +106,7 @@ export const useStreamResolver = (tmdbId, type, season = 1, episode = 1) => {
             if (isSeries) {
                 try {
                     const diziyouSources = await findDiziyouSource(movieTitle, season, episode, originalTitle);
-                    const videoUrl = diziyouSources?.original || diziyouSources?.turkish_dub;
+                    const videoUrl = diziyouSources?.turkish_dub || diziyouSources?.original;
 
                     if (diziyouSources && videoUrl) {
                         const sourceSubtitles = normalizeSourceSubtitles(diziyouSources.subtitles || [], 'Diziyou');

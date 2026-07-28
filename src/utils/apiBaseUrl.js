@@ -40,9 +40,27 @@ const getRuntimeApiUrl = () => {
 
 export const getApiBaseUrl = () => {
     try {
+        if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
+            const envUrl = trimTrailingSlash(import.meta.env.VITE_API_URL);
+            if (envUrl) return envUrl;
+        }
+
         if (typeof window !== 'undefined') {
             const hostname = window.location?.hostname || '';
             const savedUrl = window.localStorage?.getItem('noxis_api_url');
+            const runtimeApiUrl = getRuntimeApiUrl();
+
+            if (window.NoxisDesktop) {
+                if (savedUrl && isDeadApiHost(savedUrl)) {
+                    window.localStorage?.removeItem('noxis_api_url');
+                } else if (savedUrl) {
+                    return trimTrailingSlash(savedUrl);
+                }
+
+                if (runtimeApiUrl) {
+                    return trimTrailingSlash(runtimeApiUrl);
+                }
+            }
 
             if (isLocalHost(hostname)) {
                 if (savedUrl && isLocalEnvironmentUrl(savedUrl)) {
@@ -60,21 +78,13 @@ export const getApiBaseUrl = () => {
                 return trimTrailingSlash(savedUrl);
             }
 
-            const runtimeApiUrl = getRuntimeApiUrl();
             if (runtimeApiUrl) {
                 return trimTrailingSlash(runtimeApiUrl);
             }
 
-        }
-    } catch (error) {}
-
-    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
-        return trimTrailingSlash(import.meta.env.VITE_API_URL);
-    }
-
-    try {
-        if (typeof window !== 'undefined' && window.location?.origin?.startsWith('http')) {
-            return trimTrailingSlash(window.location.origin);
+            if (window.location?.origin?.startsWith('http')) {
+                return trimTrailingSlash(window.location.origin);
+            }
         }
     } catch (error) {}
 

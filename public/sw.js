@@ -8,7 +8,7 @@
  * 4. Video streams: Network Only - cache'lenmez (WebTorrent uyumluluğu)
  */
 
-const CACHE_VERSION = 'noxis-v3';
+const CACHE_VERSION = 'noxis-v4';
 const STATIC_CACHE = `noxis-static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `noxis-images-${CACHE_VERSION}`;
 const API_CACHE = `noxis-api-${CACHE_VERSION}`;
@@ -19,7 +19,6 @@ const MAX_API_CACHE_SIZE = 50;
 
 // Cache'lenecek static dosyalar
 const STATIC_ASSETS = [
-    '/',
     '/noxis-logo.svg'
 ];
 
@@ -100,7 +99,7 @@ const isTmdbImage = (url) => {
 
 // Static asset mi?
 const isStaticAsset = (url) => {
-    return /\.(js|css|woff2?|ttf|eot|svg|ico)(\?.*)?$/.test(url);
+    return /\.(js|css|woff2?|ttf|eot|svg|ico|json|webmanifest)(\?.*)?$/.test(url);
 };
 
 // API isteği mi?
@@ -173,6 +172,14 @@ self.addEventListener('fetch', (event) => {
                     return cachedResponse;
                 }
                 return fetch(request).then(networkResponse => {
+                    const contentType = networkResponse.headers.get('content-type') || '';
+                    const isModuleLike = /\.(js|css|json|webmanifest)(\?.*)?$/.test(new URL(request.url).pathname);
+                    if (isModuleLike && contentType.includes('text/html')) {
+                        return new Response('', {
+                            status: 502,
+                            statusText: 'Invalid asset response'
+                        });
+                    }
                     if (networkResponse.ok) {
                         const cloned = networkResponse.clone();
                         caches.open(STATIC_CACHE).then(cache => {

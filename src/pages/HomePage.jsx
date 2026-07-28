@@ -150,13 +150,13 @@ const HomePage = () => {
     };
 
     return (
-        <div style={{ background: 'var(--bg-primary)', paddingBottom: '80px', minHeight: '100dvh' }}>
+        <div className="tv-screen tv-home-page">
             <HeroCarousel
                 movies={data.hero}
                 onPlay={(m) => openPlayer(m, 1, 1)}
                 onDetails={openDetail}
             />
-            <div style={{ paddingTop: '24px' }}>
+            <div className="tv-rail-stack">
                 {data.continue.length > 0 && (
                     <Row
                         title="Kaldığın Yerden Devam Et"

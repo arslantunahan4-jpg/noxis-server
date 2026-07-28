@@ -12,8 +12,9 @@
     "start": "node server.js",
     "start:railway": "node server-railway.js",
     "restore": "./restore-full-version.sh",
-    "electron:dev": "NODE_ENV=development electron .",
-    "electron:build": "npm run build && electron-builder --mac",
+    "electron:dev": "node electron/dev-runner.cjs",
+    "electron:build": "npm run build && electron-builder --win",
+    "electron:pack": "npm run build && electron-builder --win --dir",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:build": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
     "cap:build:release": "npm run build && npx cap sync android && cd android && ./gradlew assembleRelease",
@@ -22,6 +23,10 @@
   "build": {
     "appId": "com.noxis.player",
     "productName": "Noxis Player",
+    "npmRebuild": false,
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**/*"
+    ],
     "directories": {
       "output": "release"
     },
@@ -36,15 +41,23 @@
       "icon": "public/icon.icns",
       "category": "public.app-category.video"
     },
+    "win": {
+      "signAndEditExecutable": false,
+      "icon": "public/icons/noxis.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
     "dmg": {
       "title": "Noxis Player",
       "backgroundColor": "#000000"
     }
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.4",
-    "@capacitor/cli": "^7.4.4",
-    "@capacitor/core": "^7.4.4",
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/core": "^7.6.8",
     "@capgo/cli": "^7.41.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -79,7 +92,6 @@
     "lodash.throttle": "^4.1.1",
     "lru-cache": "^11.2.4",
     "mongoose": "^8.0.0",
-    "node-telegram-bot-api": "^0.67.0",
     "opensubtitles-api": "^5.1.2",
     "puppeteer": "^24.35.0",
     "puppeteer-extra": "^3.3.6",
@@ -93,7 +105,6 @@
     "socket.io-client": "^4.8.3",
     "socks-proxy-agent": "^8.0.2",
     "telegram": "^2.26.22",
-    "webtorrent": "^2.8.5",
     "winston": "^3.19.0",
     "yup": "^1.7.1"
   },
