@@ -80,49 +80,49 @@ export const formatHoursBreakdown = (totalHours, totalMinutes) => {
 const getBadgeForStats = (totalHours, episodeCount, topGenreName) => {
     if (topGenreName === 'Bilim Kurgu') {
         return {
-            title: 'SİMÜLASYON HACKER\'I',
-            desc: 'Gerçeklikten koptun. Matrix\'te veya paralel bir evrende yaşamaya hazırsın.'
+            title: '70 YILLIK MESAİ ⏳',
+            desc: 'Interstellar karadeliğine düştün. Gittiğin gezegendeki 1 saat burada 70 yıla bedeldi.'
         };
     }
     if (topGenreName === 'Aksiyon' || topGenreName === 'Macera') {
         return {
-            title: 'ADRENALİN JUNKIE',
-            desc: 'Nabzının düşmesine izin vermedin. Ekranda patlama yoksa senin için sıkıcı bir gündür.'
+            title: 'ADRENALİN İĞNESİ 💉',
+            desc: 'Pulp Fiction misali kalbine adrenalin basıldı. Patlama ve tempo olmadan günü bitiremezsin.'
         };
     }
     if (topGenreName === 'Korku' || topGenreName === 'Gerilim') {
         return {
-            title: 'KARANLIK MİMARI',
-            desc: 'Travma yaşamak yerine travmayı izlemeyi tercih eden o korkusuz psikopat.'
+            title: 'REDRUM DEDEKTİFİ 🪓',
+            desc: 'The Shining koridorlarında kayboldun. Işıkları açık bırakıp gerilim arayan o cesur yürek.'
         };
     }
     if (topGenreName === 'Dram' || topGenreName === 'Romantik' || topGenreName === 'Dizi & Drama') {
         return {
-            title: 'AURA BÜKÜCÜ',
-            desc: 'Karakterlerin derdiyle dertlenen, senaryoyu damarlarında hisseden derin vizyon.'
+            title: 'O TAHTAYA İKİ KİŞİ SIĞARDI 🪵',
+            desc: 'Titanic\'te Rose\'un günahını çekip ekranda duygudan duyguya koşan derin vizyon.'
         };
     }
     if (topGenreName === 'Komedi') {
         return {
-            title: 'KAOS YÖNETİCİSİ',
-            desc: 'Stresi ve derdi kapıda bıraktın. Sadece kaliteli vizyon ve saf dopamine odaklandın.'
+            title: 'KOMUTAN LOGAR 🛸',
+            desc: 'Bir cisim yaklaştığında stresi kapıda bıraktın. Sadece saf mizah ve kahkahaya odaklandın.'
         };
     }
     if (episodeCount > 15) {
         return {
-            title: 'LORE MASTER',
-            desc: '"Son bir bölüm" yalanına inanmayı çoktan bıraktın. Diziyi değil hayatını erteledin.'
+            title: 'GECE NÖBETİ 🛡️',
+            desc: 'Game of Thrones nöbetçisi gibi gece boyu uyumadan ekran başını terk etmedin.'
         };
     }
     if (totalHours > 20) {
         return {
-            title: 'KÜLTÜR BAKANI',
+            title: 'KÜLTÜR BAKANI 🏛️',
             desc: 'Algıların açık, kalite standartların yüksek. Boş içeriğe ayıracak 1 saniyen bile yok.'
         };
     }
     return {
-        title: 'MAIN CHARACTER',
-        desc: 'Kendi filminin başrolü. Ekran karşısında geçen her saat, senin ana karakter enerjini besliyor.'
+        title: 'SABUN KULÜBÜ 🧼',
+        desc: 'Fight Club üyesi. Ekran karşısında geçen saatlerin ilk kuralı: Ne kadar izlediğinden bahsetme.'
     };
 };
 
@@ -162,7 +162,7 @@ export const getUserLevelAndBadges = (totalHours = 0, episodeCount = 0, movieCou
         },
         {
             id: 'binge_master',
-            title: 'Binge God',
+            title: 'Bir Bölüm Daha 👁️',
             desc: 'En az 10 dizi bölümünü tek hamlede bitirdin.',
             icon: '📺',
             unlocked: episodeCount >= 10
