@@ -3869,7 +3869,7 @@ app.post('/api/watchlists/:id/add', authenticateToken, async (req, res) => {
         const { item } = req.body; // { tmdbId, mediaType, title, posterPath, backdropPath }
         const list = await Watchlist.findById(req.params.id);
         if (!list) return res.status(404).json({ error: 'Not found' });
-        if (list.owner.toString() !== req.user.id && !list.collaborators.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+        if (String(list.owner) !== String(req.user.id) && !list.collaborators.some(c => String(c) === String(req.user.id))) return res.status(403).json({ error: 'Forbidden' });
         
         if (!list.items.some(i => i.tmdbId == item.tmdbId && i.mediaType == item.mediaType)) {
             list.items.push({ ...item, addedBy: req.user.id });
@@ -3886,7 +3886,7 @@ app.post('/api/watchlists/:id/remove', authenticateToken, async (req, res) => {
     try {
         const list = await Watchlist.findById(req.params.id);
         if (!list) return res.status(404).json({ error: 'Not found' });
-        if (list.owner.toString() !== req.user.id && !list.collaborators.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+        if (String(list.owner) !== String(req.user.id) && !list.collaborators.some(c => String(c) === String(req.user.id))) return res.status(403).json({ error: 'Forbidden' });
         
         const { itemId } = req.body;
         if (!itemId) return res.status(400).json({ error: 'itemId required' });
@@ -3904,7 +3904,7 @@ app.delete('/api/watchlists/:id', authenticateToken, async (req, res) => {
     try {
         const list = await Watchlist.findById(req.params.id);
         if (!list) return res.status(404).json({ error: 'Not found' });
-        if (list.owner.toString() !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+        if (String(list.owner) !== String(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
         
         await Watchlist.findByIdAndDelete(req.params.id);
         res.json({ success: true });
@@ -3936,7 +3936,7 @@ app.post('/api/watchlists/:id/invite', authenticateToken, async (req, res) => {
     try {
         const list = await Watchlist.findById(req.params.id);
         if (!list) return res.status(404).json({ error: 'List not found' });
-        if (list.owner.toString() !== req.user.id) return res.status(403).json({ error: 'Only owner can invite' });
+        if (String(list.owner) !== String(req.user.id)) return res.status(403).json({ error: 'Only owner can invite' });
 
         const { friendId } = req.body;
         if (!friendId) return res.status(400).json({ error: 'friendId required' });
