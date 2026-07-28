@@ -55,7 +55,8 @@ const AuthPage = () => {
 
             if (!res.ok) throw new Error(data.error || 'İşlem başarısız');
 
-            localStorage.setItem('noxis_auth_token', data.token);
+            if (data.token) localStorage.setItem('noxis_auth_token', data.token);
+            if (data.user) localStorage.setItem('noxis_user', JSON.stringify(data.user));
             
             // Redirect with animation delay
             setTimeout(() => {
@@ -82,7 +83,8 @@ const AuthPage = () => {
 
             if (!res.ok) throw new Error(data.error || 'İşlem başarısız');
 
-            localStorage.setItem('noxis_auth_token', data.token);
+            if (data.token) localStorage.setItem('noxis_auth_token', data.token);
+            if (data.user) localStorage.setItem('noxis_user', JSON.stringify(data.user));
             
             setTimeout(() => {
                 window.location.href = '/'; 

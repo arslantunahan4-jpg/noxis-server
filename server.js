@@ -3374,23 +3374,34 @@ app.get('/api/friends/search', authenticateToken, async (req, res) => {
         const q = String(req.query.q || '').trim().toLowerCase();
         if (q.length < 2) return res.json({ success: true, users: [] });
 
-        const users = await User.find({
+        const searchFilter = {
             username: { $regex: q, $options: 'i' },
-            _id: { $ne: req.user.id },
             isActive: { $ne: false },
             isBanned: { $ne: true }
-        })
-        .select('username avatarId bio profileVisibility')
-        .limit(20);
+        };
+
+        if (req.user?.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+            searchFilter._id = { $ne: req.user.id };
+        }
+
+        const rawUsers = await User.find(searchFilter)
+            .select('username avatarId bio profileVisibility')
+            .limit(20);
+
+        // Exclude current user by username
+        const users = rawUsers.filter(u => u.username?.toLowerCase() !== req.user?.username?.toLowerCase());
 
         // Get friendship statuses for found users
         const userIds = users.map(u => u._id);
-        const friendships = await Friendship.find({
-            $or: [
-                { requester: req.user.id, recipient: { $in: userIds } },
-                { requester: { $in: userIds }, recipient: req.user.id }
-            ]
-        });
+        let friendships = [];
+        if (req.user?.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
+            friendships = await Friendship.find({
+                $or: [
+                    { requester: req.user.id, recipient: { $in: userIds } },
+                    { requester: { $in: userIds }, recipient: req.user.id }
+                ]
+            });
+        }
 
         const friendMap = new Map();
         friendships.forEach(f => {
