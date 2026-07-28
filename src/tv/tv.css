@@ -4318,7 +4318,7 @@ button.tv-filter-tab.active,
 .noxis-wrapped-tap-right {
   position: absolute;
   top: 70px;
-  bottom: 0;
+  bottom: 110px;
   width: 35%;
   z-index: 25;
   cursor: pointer;
@@ -6126,6 +6126,9 @@ button.tv-btn-toggle-filters:hover,
     gap: 8px;
     width: 100%;
     max-width: 400px;
+    position: relative;
+    z-index: 30;
+    pointer-events: auto;
 }
 
 .noxis-wrapped-actions-row .story-btn {

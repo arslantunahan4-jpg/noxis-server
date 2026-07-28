@@ -687,7 +687,7 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                             </motion.div>
 
                                             {/* Single Native Share Button */}
-                                            <motion.div className="noxis-wrapped-actions-row" style={{ position: 'relative', zIndex: 10 }}
+                                            <motion.div className="noxis-wrapped-actions-row" style={{ position: 'relative', zIndex: 30 }}
                                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1 }}
                                             >
                                                 <button
@@ -695,7 +695,7 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                                     className="noxis-wrapped-btn-single-share"
                                                     onClick={() => shareNativeWrappedPoster(stats, avatar.url, username)}
                                                 >
-                                                    <i className="fas fa-share-nodes" /> Instagram / Hikayede Paylaş
+                                                    <i className="fas fa-share-nodes" /> Paylaş
                                                 </button>
                                                 
                                                 <button
