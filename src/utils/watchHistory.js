@@ -167,6 +167,7 @@ const syncCurrentlyWatchingActivity = (item) => {
 };
 
 export const clearCurrentlyWatchingActivity = () => {
+    lastActivitySyncTime = 0;
     try {
         const token = getUserToken();
         if (!token) return;
