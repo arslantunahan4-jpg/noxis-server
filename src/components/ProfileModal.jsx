@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getStoredAvatar } from '../config/avatars';
 import { getMonthlyAnalytics, getAnnualWrappedData } from '../utils/analytics';
@@ -15,8 +15,15 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showWrappedModal, setShowWrappedModal] = useState(false);
     const [selectedWrappedYear, setSelectedWrappedYear] = useState(() => new Date().getFullYear());
-    const monthlyReports = getMonthlyAnalytics(serverProfile?.watchHistory || null);
-    const wrappedStats = getAnnualWrappedData(selectedWrappedYear, serverProfile?.watchHistory || null);
+    const [serverProfile, setServerProfile] = useState(null);
+
+    const monthlyReports = useMemo(() => {
+        return getMonthlyAnalytics(serverProfile?.watchHistory || null);
+    }, [serverProfile]);
+
+    const wrappedStats = useMemo(() => {
+        return getAnnualWrappedData(selectedWrappedYear, serverProfile?.watchHistory || null);
+    }, [selectedWrappedYear, serverProfile]);
 
     // New State for tabs and social
     const [activeTab, setActiveTab] = useState('stats');
@@ -30,8 +37,6 @@ export const ProfileModal = ({ isOpen, onClose, username = 'Kullanıcı' }) => {
     const [profileLoaded, setProfileLoaded] = useState(false);
     const [selectedFriend, setSelectedFriend] = useState(null);
     const [friendActionLoading, setFriendActionLoading] = useState('');
-
-    const [serverProfile, setServerProfile] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
