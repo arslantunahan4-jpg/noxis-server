@@ -3398,6 +3398,9 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
                 { id: 'cult_collector', title: 'Archivist', desc: 'Toplamda 20+ içerik tamamladın.', icon: '💎', unlocked: completedTotal >= 20 }
             ];
 
+            const nextLevelXP = 250;
+            const levelTitle = getLevelTitle(level);
+
             profileData.levelData = {
                 level,
                 totalXP,
@@ -3405,7 +3408,7 @@ app.get('/api/profile/:username', authenticateToken, async (req, res) => {
                 nextLevelXP,
                 progressPercent,
                 levelInfo: levelTitle,
-                badges
+                badges: allBadges
             };
 
             // Recent Watched Items (WITHOUT completion percentage)
