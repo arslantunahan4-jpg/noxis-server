@@ -3746,16 +3746,37 @@ app.post('/api/friends/remove', authenticateToken, async (req, res) => {
 // GET /api/friends/list - Get friends list with online status
 app.get('/api/friends/list', authenticateToken, async (req, res) => {
     try {
+        const userObjId = mongoose.Types.ObjectId.isValid(req.user.id)
+            ? new mongoose.Types.ObjectId(String(req.user.id))
+            : req.user.id;
+
         const friendships = await Friendship.find({
-            $or: [{ requester: req.user.id }, { recipient: req.user.id }],
-            status: 'accepted'
+            $or: [
+                { requester: userObjId, status: 'accepted' },
+                { recipient: userObjId, status: 'accepted' },
+                { requester: String(req.user.id), status: 'accepted' },
+                { recipient: String(req.user.id), status: 'accepted' }
+            ]
         }).populate('requester recipient', 'username avatarId bio profileVisibility onlineStatus');
 
         const friends = friendships
-            .filter(f => f.requester && f.recipient)
             .map(f => {
-                const isRequester = String(f.requester._id || f.requester) === String(req.user.id);
-                const friend = isRequester ? f.recipient : f.requester;
+                if (!f.requester || !f.recipient) return null;
+                const reqId = String(f.requester._id || f.requester);
+                const recId = String(f.recipient._id || f.recipient);
+                const currentId = String(req.user.id);
+
+                let friend = null;
+                if (reqId === currentId) {
+                    friend = f.recipient;
+                } else if (recId === currentId) {
+                    friend = f.requester;
+                } else {
+                    // Fallback comparison
+                    friend = String(f.requester.username || '').toLowerCase() === String(req.user.username || '').toLowerCase()
+                        ? f.recipient : f.requester;
+                }
+
                 if (!friend || !friend.username) return null;
 
                 const friendLastSeen = friend.onlineStatus?.lastSeen || friend.updatedAt || friend.createdAt || new Date();
