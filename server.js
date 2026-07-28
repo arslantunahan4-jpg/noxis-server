@@ -3830,7 +3830,7 @@ app.post('/api/notifications/recommend', authenticateToken, async (req, res) => 
         const notif = new Notification({
             sender: req.user.id,
             recipient: recipientId,
-            type: 'RECOMMENDATION',
+            type: 'recommendation',
             data: payloadData
         });
         await notif.save();
@@ -3842,7 +3842,7 @@ app.post('/api/notifications/recommend', authenticateToken, async (req, res) => 
                 io.to(sid).emit('new_notification', {
                     _id: notif._id,
                     sender: senderUser,
-                    type: 'RECOMMENDATION',
+                    type: 'recommendation',
                     data: payloadData,
                     createdAt: notif.createdAt
                 });
