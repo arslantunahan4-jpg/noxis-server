@@ -53,11 +53,20 @@ self.onmessage = async (e) => {
             const itemTime = item.updatedAt || item.timestamp || now;
             const daysDiff = (now - itemTime) / oneDay;
             const recencyScore = Math.pow(WEIGHTS.RECENCY_DECAY, daysDiff);
-            const progressVal = item.progress ? Math.min(item.progress, 100) / 100 : 0.5;
             
-            if (progressVal < WEIGHTS.MIN_PROGRESS) return;
+            // AI Engagement Precision: Calculate real uninterrupted watch time
+            const duration = item.duration || 1;
+            const realSec = item.realWatchSeconds || (item.progress ? (item.progress / 100) * duration : 0);
+            const realRatio = Math.min(1, realSec / duration);
 
-            const impactScore = progressVal * recencyScore * (progressVal > 0.9 ? WEIGHTS.COMPLETION_BONUS : 1);
+            // Anti-Fraud Filter: Skip fast-forwarded / accidental clicks (< 3 mins and < 15%)
+            if (realSec < 180 && realRatio < 0.15) return;
+
+            // Engagement Multiplier: Content watched for > 15 mins or > 50% continuously gets 2.0x weight!
+            let engagementBonus = 1.0;
+            if (realSec >= 900 || realRatio >= 0.5) engagementBonus = 2.0;
+
+            const impactScore = realRatio * recencyScore * engagementBonus;
             scoredItems.push({ ...detail, impactScore });
 
             detail.genres?.forEach(g => {

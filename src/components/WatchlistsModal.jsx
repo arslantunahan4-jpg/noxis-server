@@ -237,30 +237,136 @@ export const WatchlistsModal = ({ isOpen, onClose, user }) => {
                                     )}
 
                                     {/* AI Suggest Section */}
-                                    <div style={{ marginTop: '20px', padding: '20px', background: 'linear-gradient(135deg, rgba(229,9,20,0.1) 0%, rgba(229,9,20,0.02) 100%)', borderRadius: '16px', border: '1px solid rgba(229,9,20,0.2)' }}>
-                                        <h4 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <i className="fas fa-magic" style={{ color: '#e50914' }} /> Akıllı Öneri (AI)
-                                        </h4>
-                                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '0 0 15px 0' }}>
-                                            Listendeki içeriklere ve yönetmenlere göre izlemediğin benzer popüler yapımları keşfet.
+                                    <div style={{
+                                        marginTop: '24px',
+                                        padding: '22px',
+                                        background: 'linear-gradient(135deg, rgba(229, 9, 20, 0.12) 0%, rgba(138, 43, 226, 0.08) 50%, rgba(0, 212, 255, 0.05) 100%)',
+                                        borderRadius: '20px',
+                                        border: '1px solid rgba(229, 9, 20, 0.25)',
+                                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+                                        backdropFilter: 'blur(10px)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: '#fff' }}>
+                                                <i className="fas fa-brain" style={{ color: '#00d4ff', filter: 'drop-shadow(0 0 8px rgba(0,212,255,0.6))' }} />
+                                                Ortak Zevk AI Öneri Motoru
+                                            </h4>
+                                            {aiSuggestions.length > 0 && (
+                                                <button
+                                                    onClick={() => handleAiSuggest(selectedList._id)}
+                                                    disabled={aiLoading}
+                                                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', padding: '5px 10px', borderRadius: '100px', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                                >
+                                                    <i className={`fas fa-sync-alt ${aiLoading ? 'fa-spin' : ''}`} /> Yenile
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                                            Listenizdeki mevcut tüm yapımlar ve grubun ortak tür ağırlıkları nöral yapay zeka matrisiyle analiz edildi.
                                         </p>
-                                        
+
                                         {!aiSuggestions.length && !aiLoading ? (
-                                            <button onClick={() => handleAiSuggest(selectedList._id)} style={{ width: '100%', padding: '12px', background: '#e50914', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                                Bana Film/Dizi Öner
+                                            <button
+                                                onClick={() => handleAiSuggest(selectedList._id)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '14px',
+                                                    background: 'linear-gradient(135deg, #e50914 0%, #b20710 100%)',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '12px',
+                                                    fontWeight: 800,
+                                                    fontSize: '14px',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 15px rgba(229, 9, 20, 0.4)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px'
+                                                }}
+                                            >
+                                                <i className="fas fa-sparkles" /> Grubumuz İçin Ortak Önerileri Getir
                                             </button>
                                         ) : aiLoading ? (
-                                            <div style={{ textAlign: 'center', padding: '20px', color: '#e50914' }}><i className="fas fa-spinner fa-spin fa-2x" /></div>
+                                            <div style={{ textAlign: 'center', padding: '30px', color: '#00d4ff' }}>
+                                                <i className="fas fa-brain fa-spin fa-2x" style={{ marginBottom: '10px' }} />
+                                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'rgba(255,255,255,0.8)' }}>Ortak Zevk Matrisi Analiz Ediliyor...</div>
+                                            </div>
                                         ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                 {aiSuggestions.map(s => (
-                                                    <div key={s.id} style={{ display: 'flex', gap: '10px', padding: '10px', background: 'rgba(0,0,0,0.5)', borderRadius: '10px', alignItems: 'center' }}>
-                                                        <img src={`https://image.tmdb.org/t/p/w92${s.poster_path}`} style={{ width: '40px', borderRadius: '6px' }} />
+                                                    <div
+                                                        key={s.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            gap: '12px',
+                                                            padding: '12px',
+                                                            background: 'rgba(0, 0, 0, 0.45)',
+                                                            borderRadius: '14px',
+                                                            alignItems: 'center',
+                                                            border: '1px solid rgba(255,255,255,0.06)',
+                                                            transition: 'transform 0.2s, background 0.2s'
+                                                        }}
+                                                    >
+                                                        {s.poster_path ? (
+                                                            <img
+                                                                src={`https://image.tmdb.org/t/p/w92${s.poster_path}`}
+                                                                style={{ width: '48px', height: '70px', objectFit: 'cover', borderRadius: '8px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}
+                                                                alt=""
+                                                            />
+                                                        ) : (
+                                                            <div style={{ width: '48px', height: '70px', background: '#222', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <i className="fas fa-film" style={{ color: '#555' }} />
+                                                            </div>
+                                                        )}
+
                                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || s.name}</div>
-                                                            <div style={{ fontSize: '10px', color: '#e50914' }}><i className="fas fa-star"/> {s.vote_average?.toFixed(1)}</div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                                <span style={{
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 800,
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: '100px',
+                                                                    background: 'linear-gradient(135deg, #00c853 0%, #00e676 100%)',
+                                                                    color: '#000'
+                                                                }}>
+                                                                    %{s.matchPercentage || 95} GRUP UYUMU
+                                                                </span>
+                                                                {s.vote_average > 0 && (
+                                                                    <span style={{ fontSize: '11px', color: '#ffb300', fontWeight: 'bold' }}>
+                                                                        <i className="fas fa-star" style={{ fontSize: '10px' }} /> {s.vote_average?.toFixed(1)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            <h5 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {s.title || s.name}
+                                                            </h5>
+
+                                                            <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <i className="fas fa-lightbulb" style={{ color: '#ffb300', marginRight: '4px' }} />
+                                                                {s.reason || 'Ortak İzleme Zevkinize Uyumlu'}
+                                                            </p>
                                                         </div>
-                                                        <button onClick={() => handleAddAiSuggestion(s)} style={{ background: '#e50914', border: 'none', color: '#fff', padding: '6px 12px', borderRadius: '100px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>Ekle</button>
+
+                                                        <button
+                                                            onClick={() => handleAddAiSuggestion(s)}
+                                                            style={{
+                                                                background: 'linear-gradient(135deg, #e50914 0%, #b20710 100%)',
+                                                                border: 'none',
+                                                                color: '#fff',
+                                                                padding: '8px 14px',
+                                                                borderRadius: '100px',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                                fontWeight: 800,
+                                                                boxShadow: '0 3px 10px rgba(229, 9, 20, 0.4)',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            + Ekle
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>

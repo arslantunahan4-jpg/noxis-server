@@ -20,7 +20,49 @@ const GENRE_MAP = {
     10770: 'TV Film',
     53: 'Gerilim',
     10752: 'Savaş',
-    37: 'Vahşi Batı'
+    37: 'Vahşi Batı',
+    10759: 'Aksiyon & Macera',
+    10762: 'Çocuk',
+    10763: 'Haber',
+    10764: 'Reality',
+    10765: 'Bilim Kurgu & Fantastik',
+    10766: 'Pembe Dizi',
+    10767: 'Talk Show',
+    10768: 'Savaş & Politik'
+};
+
+const extractGenreNames = (item) => {
+    const names = new Set();
+    if (!item) return [];
+
+    if (Array.isArray(item.genre_ids)) {
+        item.genre_ids.forEach(gId => {
+            const name = GENRE_MAP[gId];
+            if (name) names.add(name);
+        });
+    }
+
+    if (Array.isArray(item.genres)) {
+        item.genres.forEach(g => {
+            if (typeof g === 'number' && GENRE_MAP[g]) {
+                names.add(GENRE_MAP[g]);
+            } else if (typeof g === 'object' && g !== null) {
+                if (g.name) names.add(g.name);
+                else if (g.id && GENRE_MAP[g.id]) names.add(GENRE_MAP[g.id]);
+            } else if (typeof g === 'string' && g.trim()) {
+                names.add(g.trim());
+            }
+        });
+    }
+
+    if (typeof item.genre === 'string' && item.genre.trim()) {
+        item.genre.split(',').forEach(g => {
+            const trimmed = g.trim();
+            if (trimmed) names.add(trimmed);
+        });
+    }
+
+    return Array.from(names);
 };
 
 const DAY_NAMES = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
@@ -468,12 +510,13 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
     let totalSeconds = 0;
     let movieCount = 0;
     let episodeCount = 0;
+    const genreScores = {};
     const genreCounts = {};
     const itemMap = new Map();
     const dailyBingeCounts = {};
 
     cycleItems.forEach((item) => {
-        const duration = Number(item.currentTime || 0);
+        const duration = Number(item.realWatchSeconds || item.currentTime || 0);
         totalSeconds += duration;
 
         const isCompleted = isCompletedItem(item);
@@ -492,12 +535,12 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
             if (isCompleted) movieCount += 1;
         }
 
-        if (Array.isArray(item.genre_ids) && item.genre_ids.length > 0) {
-            item.genre_ids.forEach((gId) => {
-                const name = GENRE_MAP[gId];
-                if (name) {
-                    genreCounts[name] = (genreCounts[name] || 0) + 1;
-                }
+        const extractedGenres = extractGenreNames(item);
+        if (extractedGenres.length > 0) {
+            const weight = Math.max(60, duration);
+            extractedGenres.forEach((name) => {
+                genreScores[name] = (genreScores[name] || 0) + weight;
+                genreCounts[name] = (genreCounts[name] || 0) + 1;
             });
         }
 
@@ -520,20 +563,28 @@ export const getAnnualWrappedData = (targetYear = new Date().getFullYear(), cust
     const totalMinutes = Math.round(totalSeconds / 60);
     const hasEnoughData = cycleItems.length > 0 && totalSeconds >= 180;
 
-    let sortedGenres = Object.entries(genreCounts)
+    let sortedGenres = Object.entries(genreScores)
         .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => ({ name, count }));
+        .map(([name, score]) => ({
+            name,
+            score,
+            count: genreCounts[name] || 1,
+            hours: Math.round((score / 3600) * 10) / 10
+        }));
 
     if (sortedGenres.length === 0) {
-        if (episodeCount > 0) sortedGenres.push({ name: 'Dizi & Drama', count: episodeCount });
-        if (movieCount > 0) sortedGenres.push({ name: 'Sinema & Aksiyon', count: movieCount });
+        const fallbacks = [];
+        if (movieCount > 0) fallbacks.push({ name: 'Sinema & Aksiyon', count: movieCount, hours: Math.round((movieCount * 1.5) * 10) / 10, score: movieCount });
+        if (episodeCount > 0) fallbacks.push({ name: 'Dizi & Drama', count: episodeCount, hours: Math.round((episodeCount * 0.7) * 10) / 10, score: episodeCount });
+        fallbacks.sort((a, b) => b.count - a.count);
+        sortedGenres = fallbacks;
     }
 
     const top5Items = Array.from(itemMap.values())
         .sort((a, b) => b.totalWatchSeconds - a.totalWatchSeconds)
         .slice(0, 5);
 
-    const topGenre = sortedGenres[0]?.name || (episodeCount > movieCount ? 'Dizi & Drama' : 'Sinema & Aksiyon');
+    const topGenre = sortedGenres[0]?.name || (movieCount >= episodeCount ? 'Sinema & Aksiyon' : 'Dizi & Drama');
     const persona = getBadgeForStats(totalHours, episodeCount, topGenre);
     const timeBreakdown = formatHoursBreakdown(totalHours, totalMinutes);
     const insights = getDeepWatchInsights();

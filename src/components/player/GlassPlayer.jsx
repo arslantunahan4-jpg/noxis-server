@@ -512,6 +512,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
     const pendingAutoplayRef = useRef(null);
     const lastPlaybackKeyRef = useRef(null);
     const lastSavedSecondRef = useRef(-1);
+    const realWatchTimerRef = useRef(0);
+    const lastWallClockRef = useRef(Date.now());
 
     // PERFORMANCE: Cihaz ve animasyon optimizasyonu
     const deviceCapability = useDeviceCapability();
@@ -1262,7 +1264,8 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
         poster_path: poster,
         backdrop_path: backdrop,
         tmdbId,
-        mediaType
+        mediaType,
+        realWatchSeconds: Math.round(realWatchTimerRef.current || 0)
     }), [season, episode, movieTitle, poster, backdrop, tmdbId, mediaType]);
 
     const savePlaybackProgress = useCallback((timeOverride = null) => {
@@ -1971,9 +1974,17 @@ export const GlassPlayer = ({ streamUrl, subtitles = [], onClose, movieTitle, ep
     // Bu değişiklik CPU kullanımını %85 azaltır
     const onTimeUpdateCore = useCallback(() => {
         if (!visibility.isVisible && !IS_IOS) return; // Skip heavy UI updates if hidden and not iOS
-        if (!videoRef.current) return;
         const vid = videoRef.current;
         currentTimeRef.current = vid.currentTime;
+
+        // REAL WATCH TIME ACCUMULATOR (Anti-Fraud & AI Precision)
+        const now = Date.now();
+        const deltaSec = (now - lastWallClockRef.current) / 1000;
+        lastWallClockRef.current = now;
+
+        if (!vid.paused && vid.readyState >= 3 && document.visibilityState === 'visible' && deltaSec > 0 && deltaSec < 5) {
+            realWatchTimerRef.current += deltaSec;
+        }
 
         // Party sync - sadece host için
         if (party.isHost && !vid.paused) {

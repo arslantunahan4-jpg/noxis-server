@@ -8,12 +8,12 @@ import { WrappedPosterDOM } from './WrappedPosterDOM';
 import '../tv/tv.css';
 
 const SLIDE_TAGLINES = [
-    ['🍿 Popcornlar hazırsa başlayalım', '🎬 Main Character Energy aktifleşiyor...', '✨ 2026 sinema aura\'n ortaya çıkıyor'],
-    ['⏱️ Ekran süren şaka mı?', '🔥 Ekranla bütünleştiğin o anlar...', '📺 Rekor kırıldı, arkana yaslan'],
-    ['🤯 Maraton ustası', '⚡ Uyumak yerine devam dedin', '📺 Binge rekorun inanılmaz'],
-    ['🎭 DNA\'nda hangi tür var?', '🌟 Algoritma zevkini deşifre etti', '🎯 Tarzın tek kelimeyle ikonik'],
-    ['🏆 Zirvedeki Top 5 favorin', '⭐ Letterboxd listenin en tepesi', '🎞️ Tekrar tekrar döndürdüğün o 5\'li'],
-    ['👑 2026 Sinema Unvanın', '🎖️ Aura seviyen tavan yaptı', '🌟 Final Boss modu açıldı']
+    ['🍿 Popcornlar hazırsa sinema yolculuğun başlıyor', '🎬 Main Character Energy tavan yaptı', '✨ Yıllık sinema aura\'n gün yüzüne çıkıyor'],
+    ['⏱️ Ekranla bütünleştiğin o büyülü anlar...', '🔥 Zamanın nasıl aktığını hissetmedin bile', '📺 İzleme rekorların bir bir kırıldı'],
+    ['🤯 Peş peşe bölümler, uykusuz geceler...', '⚡ "Son bir bölüm" yalanına yine inandın', '📺 Maraton modu aralıksız açık kaldı'],
+    ['🎭 Sinema DNA\'nda hangi genler var?', '🌟 Zevk haritan tam olarak deşifre edildi', '🎯 İzleme tarzın tek kelimeyle ikonik'],
+    ['🏆 Letterboxd listene taş çıkartacak Top 5', '⭐ Tekrar tekrar döndürdüğün o başyapıtlar', '🎞️ 2026 yılına damga vuran favorilerin'],
+    ['👑 Yıllık Sinema Unvanın Hazır!', '🎖️ Sinema auran zirveye ulaştı', '🌟 Ve işte senin 2026 Sinema Personan!']
 ];
 
 const getRandomTagline = (slideIdx) => {
@@ -21,87 +21,12 @@ const getRandomTagline = (slideIdx) => {
     return options[Math.floor(Math.random() * options.length)];
 };
 
-const createAmbientMusic = (genreName = '') => {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = 0;
-        gainNode.connect(ctx.destination);
-
-        const oscillators = [];
-        
-        let notes = [130.81, 164.81, 196.0, 261.63]; // Default Major C
-        let waveType = 'sine';
-        
-        if (genreName === 'Korku' || genreName === 'Gerilim') {
-            notes = [110.0, 116.54, 130.81, 146.83]; // Dissonant low frequencies
-            waveType = 'triangle';
-        } else if (genreName === 'Aksiyon' || genreName === 'Macera') {
-            notes = [196.0, 261.63, 293.66, 392.0]; // Fast pace high freq
-            waveType = 'sawtooth';
-        } else if (genreName === 'Komedi') {
-            notes = [261.63, 329.63, 392.0, 523.25]; // Upbeat C Major
-            waveType = 'square';
-        }
-
-        notes.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            osc.type = waveType;
-            osc.frequency.value = freq;
-            const oscGain = ctx.createGain();
-            // Lower volume for harsh waveforms
-            const volMod = waveType === 'sine' ? 1 : 0.4;
-            oscGain.gain.value = (0.04 - i * 0.008) * volMod;
-            osc.connect(oscGain);
-            oscGain.connect(gainNode);
-            osc.start();
-            oscillators.push(osc);
-        });
-
-        const lfo = ctx.createOscillator();
-        lfo.frequency.value = 0.3;
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.value = 0.008;
-        lfo.connect(lfoGain);
-        lfoGain.connect(gainNode.gain);
-        lfo.start();
-
-        return {
-            fadeIn: () => {
-                if (ctx.state === 'suspended') ctx.resume();
-                gainNode.gain.cancelScheduledValues(ctx.currentTime);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 1.5);
-            },
-            fadeOut: () => {
-                gainNode.gain.cancelScheduledValues(ctx.currentTime);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
-                gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.0);
-                setTimeout(() => {
-                    oscillators.forEach(o => { try { o.stop(); } catch (e) {} });
-                    try { lfo.stop(); } catch (e) {}
-                    try { ctx.close(); } catch (e) {}
-                }, 1200);
-            },
-            setVolume: (v) => {
-                gainNode.gain.cancelScheduledValues(ctx.currentTime);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
-                gainNode.gain.linearRampToValueAtTime(v, ctx.currentTime + 0.3);
-            }
-        };
-    } catch {
-        return { fadeIn: () => {}, fadeOut: () => {}, setVolume: () => {} };
-    }
-};
-
 export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıcı', avatar: propAvatar }) => {
     const [stats, setStats] = useState(null);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
     const [taglines, setTaglines] = useState([]);
     const [isSharing, setIsSharing] = useState(false);
-    const musicRef = useRef(null);
 
     const HAS_FACES_SLIDE = stats?.topActor || stats?.topDirector;
     const TOTAL_SLIDES = HAS_FACES_SLIDE ? 7 : 6;
@@ -121,19 +46,8 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
 
             setCurrentSlide(0);
             setIsPaused(false);
-            setIsMuted(false);
             setTaglines(Array.from({ length: TOTAL_SLIDES }, (_, i) => getRandomTagline(i)));
-
-            const music = createAmbientMusic(data.topGenreName);
-            musicRef.current = music;
-            music.fadeIn();
         }
-        return () => {
-            if (musicRef.current) {
-                musicRef.current.fadeOut();
-                musicRef.current = null;
-            }
-        };
     }, [isOpen, year]);
 
     useEffect(() => {
@@ -153,19 +67,7 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
         if (currentSlide > 0) setCurrentSlide(prev => prev - 1);
     }, [currentSlide]);
 
-    const toggleMute = useCallback(() => {
-        setIsMuted(prev => {
-            const next = !prev;
-            if (musicRef.current) musicRef.current.setVolume(next ? 0 : 0.12);
-            return next;
-        });
-    }, []);
-
     const handleClose = useCallback(() => {
-        if (musicRef.current) {
-            musicRef.current.fadeOut();
-            musicRef.current = null;
-        }
         onClose();
     }, [onClose]);
 
@@ -199,16 +101,16 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
         exit: { opacity: 0, y: -30, scale: 0.96, transition: { duration: 0.25 } }
     };
 
-    // --- DYNAMIC TEXT GENERATION ---
+    // --- SPOTIFY WRAPPED STYLE WITTY PUNCHLINES ---
     const getHoursText = (m) => {
-        if (m < 10) return { title: `Sadece ${m} dakikacık...`, desc: "Uygulamaya şöyle bir bakıp çıkmışsın galiba. Gelecek yıl daha fazla görüşelim!" };
-        if (m < 60) return { title: `Tam ${m} dakika.`, desc: "Sadece kısa bir içerik izlemişsin. Hayat çok meşgul olmalı." };
-        if (m < 300) return { title: `Tam ${m} dakika (${(m/60).toFixed(1)} saat).`, desc: "Film ve diziler senin için çerezlik. Seçici davranıyor, sadece en iyilerini izliyorsun." };
-        if (m < 1200) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Düzenli bir izleyicisin. Ne çok asosyal, ne de çok kopuk. Tam kıvamında!" };
-        if (m < 3000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Bu sürede spora başlasaydın şu an karın kasların vardı. Ama sen sinema sanatına adandın." };
-        if (m < 6000) return { title: `Koca bir ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!`, desc: "Sıfırdan yeni bir dil öğrenebilirdin. Neyse ki filmlerde yeterince alt yazı okudun." };
-        if (m < 15000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!!`, desc: "Dünyayı yürüyerek gezmeye başlayabilirdin. Ancak sen başka evrenleri keşfetmeyi seçtin. Saygı duyuyoruz 🫡" };
-        return { title: `İnanılmaz... ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!!!`, desc: "Neredeyse bu uygulamada yaşıyorsun. Gerçek bir sinema/dizi gurmesi! Efsaneler arasında yerin hazır 👑" };
+        if (m < 10) return { title: `Sadece ${m} dakikacık... 👀`, desc: "Fragman izlerken mi uyuyakaldın? Seneye daha uzun takılalım!" };
+        if (m < 60) return { title: `Yaklaşık 1 saat (Tam ${m} dk) ⏱️`, desc: "Dizi jeneriğini atlamadan izleseydin yarısı gitmişti. Kısa ve öz bir izleyici!" };
+        if (m < 300) return { title: `Tam ${m} dakika (${(m/60).toFixed(1)} saat) 🍿`, desc: "Sadece en yüksek puanlı yapımlara şans veren o seçici sinemaseversin." };
+        if (m < 1200) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat) 🎬`, desc: "Koltukta hafif bir iz bıraktın. Kaliteli birkaç dizi maratonu için mükemmel bir süre!" };
+        if (m < 3000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat) 🔥`, desc: "Sanki tek oturuşta 3 efsane diziyi bitirmiş gibisin. Kumanda resmen senin uzvun oldu." };
+        if (m < 6000) return { title: `Koca bir ${m.toLocaleString()} dakika (${Math.round(m/60)} saat) 🌌`, desc: "Uykudan biraz feragat edildi, 'Son bir bölüm daha' yalanı defalarca söylendi." };
+        if (m < 15000) return { title: `Tam ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!! 🏆`, desc: "Başka dünyaları keşfederken bu dünyayı unuttun. Gerçek bir maraton şampiyonu!" };
+        return { title: `Efsanevi ${m.toLocaleString()} dakika (${Math.round(m/60)} saat)!!! 👑`, desc: "Neredeyse ekranın içindesin. Tüm yönetmenler sana saygı duruşunda bulunuyor!" };
     };
 
     const getBingeText = (b) => {
@@ -302,9 +204,6 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                     <i className="fas fa-compact-disc fa-spin-slow" /> NOXIS REWIND {stats.year || 2026}
                                 </span>
                                 <div className="noxis-wrapped-controls">
-                                    <button type="button" className="noxis-wrapped-icon-btn" onClick={toggleMute} title={isMuted ? 'Sesi Aç' : 'Sessiz'}>
-                                        <i className={`fas ${isMuted ? 'fa-volume-mute' : 'fa-volume-up'}`} />
-                                    </button>
                                     <button type="button" className="noxis-wrapped-icon-btn" onClick={() => setIsPaused(!isPaused)} title={isPaused ? 'Devam Et' : 'Duraklat'}>
                                         <i className={`fas ${isPaused ? 'fa-play' : 'fa-pause'}`} />
                                     </button>
@@ -491,12 +390,12 @@ export const NoxisWrappedModal = ({ isOpen, onClose, year, username = 'Kullanıc
                                                     <div key={g.name} className="noxis-wrapped-spectrum-row">
                                                         <div className="noxis-wrapped-spectrum-info">
                                                             <span>#{idx + 1} {g.name}</span>
-                                                            <small>{g.count} İçerik</small>
+                                                            <small>{g.hours ? `${g.hours} Saat` : `${g.count} İçerik`}</small>
                                                         </div>
                                                         <div className="noxis-wrapped-spectrum-track">
                                                             <motion.div
                                                                 initial={{ width: 0 }}
-                                                                animate={{ width: `${Math.min(100, (g.count / (stats.topGenres[0]?.count || 1)) * 100)}%` }}
+                                                                animate={{ width: `${Math.min(100, (((g.score || g.hours || g.count)) / ((stats.topGenres[0]?.score || stats.topGenres[0]?.hours || stats.topGenres[0]?.count || 1))) * 100)}%` }}
                                                                 transition={{ duration: 0.8, delay: 0.7 + idx * 0.15, ease: 'easeOut' }}
                                                                 className={`noxis-wrapped-spectrum-fill fill-rank-${idx + 1}`}
                                                             />

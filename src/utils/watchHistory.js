@@ -195,7 +195,10 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
     const key = getKey(imdbId, metadata.season, metadata.episode);
     const progress = (currentTime / duration) * 100;
 
-    // PERFORMANCE: Sadece gerekli verileri sakla (poster/backdrop URL'leri SAKLAMA)
+    const existing = history[key] || {};
+    const existingReal = Number(existing.realWatchSeconds || 0);
+    const newReal = Number(metadata.realWatchSeconds || 0);
+
     history[key] = {
         imdbId,
         id: metadata.tmdbId || null,
@@ -203,13 +206,15 @@ export const saveProgress = (imdbId, currentTime, duration, metadata = {}) => {
         currentTime: Math.floor(currentTime),
         duration: Math.floor(duration),
         progress: Math.round(progress),
+        realWatchSeconds: Math.max(existingReal, newReal),
         updatedAt: Date.now(),
         completed: progress >= 90,
         title: metadata.title || null,
         season: metadata.season || null,
         episode: metadata.episode || null,
         poster_path: metadata.poster_path || null,
-        backdrop_path: metadata.backdrop_path || null
+        backdrop_path: metadata.backdrop_path || null,
+        genre_ids: metadata.genre_ids || metadata.genres || []
     };
 
     try {
