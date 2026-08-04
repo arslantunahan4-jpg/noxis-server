@@ -1574,7 +1574,7 @@ app.get('/api/video-proxy', async (req, res) => {
                 });
             } catch (torErr) {
                 console.warn('[VideoProxy Tor Fallback] Tor request failed, falling back to Worker proxy:', torErr.message);
-                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://worker.noxis.tech';
                 let fallbackUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
                 if (customReferer) fallbackUrl += `&referer=${encodeURIComponent(customReferer)}`;
                 response = await axios({
@@ -1589,7 +1589,7 @@ app.get('/api/video-proxy', async (req, res) => {
         } else {
             let requestUrl = targetUrl;
             if (isStreamimdb) {
-                const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+                const workerUrl = process.env.VITE_WORKER_URL || 'https://worker.noxis.tech';
                 requestUrl = `${workerUrl}?url=${encodeURIComponent(targetUrl)}&mode=proxy`;
                 if (customReferer) requestUrl += `&referer=${encodeURIComponent(customReferer)}`;
             }
@@ -2683,7 +2683,7 @@ const normalizeStreamimdbVideos = async (streamUrls = [], req, embedUrl) => {
         streamUrls.filter(url => typeof url === 'string' && /^https?:\/\//i.test(url))
     ));
 
-    const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+    const workerUrl = process.env.VITE_WORKER_URL || 'https://worker.noxis.tech';
     const results = [];
 
     const useBackendProxy = USE_TOR && torAgent;
@@ -2824,7 +2824,7 @@ app.get('/api/streamimdb/resolve', async (req, res) => {
         if (USE_TOR && torAgent) {
             proxyAgent = torAgent;
         } else {
-            const workerUrl = process.env.VITE_WORKER_URL || 'https://ancient-math-1d1b.arslab.workers.dev';
+            const workerUrl = process.env.VITE_WORKER_URL || 'https://worker.noxis.tech';
             requestUrl = `${workerUrl}?url=${encodeURIComponent(apiUrl.toString())}&mode=proxy&referer=${encodeURIComponent(embedUrl)}`;
         }
 
